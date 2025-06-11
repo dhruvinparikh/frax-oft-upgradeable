@@ -62,6 +62,11 @@ contract SetBlockSendLib is FixDVNsInherited {
                         continue;
                     }
 
+                    // If we're not simulating fraxtal, only set the send library to fraxtal (to maintain hub-model)
+                    if (_config.chainid != 252 && proxyConfigs[i].chainid != 252) {
+                        continue;
+                    }
+
                     // set the blocked library for the connected OFT
                     bytes memory data = abi.encodeCall(
                         IMessageLibManager.setSendLibrary,
