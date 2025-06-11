@@ -15,6 +15,12 @@ struct UlnConfig {
 }
 
 contract SetupMockFrax is DeployFraxOFTProtocol {
+
+    address sepoliaOFT;
+    address arbSepoliaOFT;
+    uint256 sepoliaPeerId;
+    SetConfigParam[] setConfigParams;
+
     constructor() {
         delete connectedOfts;
         connectedOfts.push(sepoliaOFT);

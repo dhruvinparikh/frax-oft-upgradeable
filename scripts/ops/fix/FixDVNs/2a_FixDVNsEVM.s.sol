@@ -4,6 +4,7 @@ pragma solidity ^0.8.19;
 import "./FixDVNsInherited.s.sol";
 
 // Reset the DVNs of a chain based on it's config (`config/`)
+// forge script scripts/ops/fix/FixDVNs/2a_FixDVNsEVM.s.sol
 contract FixDVNs is FixDVNsInherited {
     using stdJson for string;
     using Strings for uint256;
@@ -25,6 +26,12 @@ contract FixDVNs is FixDVNsInherited {
 
         for (uint256 i = 0; i < proxyConfigs.length; i++) {
             for (uint256 j = 0; j < chainIds.length; j++) {
+                // only fix DVNs for chains that are EVM-based
+                if (chainIds[j] == 324 || chainIds[j] == 2741) {
+                    // skip zksync and abstract, they have a separate script
+                    continue;
+                }
+
                 if (proxyConfigs[i].chainid == chainIds[j]) {
                     fixDVNs(proxyConfigs[i]);
                 }
@@ -35,10 +42,16 @@ contract FixDVNs is FixDVNsInherited {
     function fixDVNs(L0Config memory _config) public simulateAndWriteTxs(_config) {
         for (uint256 i = 0; i < proxyConfigs.length; i++) {
             for (uint256 j = 0; j < chainIds.length; j++) {
+                // skip if not a chain id configured or we're setting DVNs to self
                 if (proxyConfigs[i].chainid != chainIds[j] || proxyConfigs[i].chainid == _config.chainid) continue;
 
                 // skip if peer is not set for one OFT, which means all OFTs
                 if (!hasPeer(connectedOfts[0], proxyConfigs[i])) {
+                    continue;
+                }
+
+                // If not fraxtal, only fix the DVNs to fraxtal (to upgrade the hub-model)
+                if (_config.chainid != 252 && proxyConfigs[i].chainid != 252) {
                     continue;
                 }
 
