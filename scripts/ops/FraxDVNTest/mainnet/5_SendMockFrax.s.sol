@@ -56,6 +56,8 @@ contract SendMockFrax is BaseL0Script {
         for (uint256 _i; _i < allConfigs.length; _i++) {
             if (allConfigs[_i].eid == 30168) continue;
             if (allConfigs[_i].eid == 30151) continue;
+            if (allConfigs[_i].eid == 30376) continue;
+            if (allConfigs[_i].eid == 30325) continue;
             if (broadcastConfig.chainid == allConfigs[_i].chainid) {
                 if (allConfigs[_i].chainid == 59144) {
                     // linea
@@ -84,23 +86,20 @@ contract SendMockFrax is BaseL0Script {
             if (broadcastConfig.chainid == allConfigs[_i].chainid) continue;
             if (allConfigs[_i].eid == 30168) continue;
             if (allConfigs[_i].eid == 30151) continue;
+            if (allConfigs[_i].eid == 30376) continue;
+            if (allConfigs[_i].eid == 30325) continue;
             address recipientWallet;
-            address mockFraxOFT;
             if (allConfigs[_i].chainid == 59144) {
                 // linea
-                mockFraxOFT = mockFraxLinea;
                 recipientWallet = mockFraxLineaWallet;
             } else if (allConfigs[_i].chainid == 2741) {
                 // abstract
-                mockFraxOFT = mockFraxAbstract;
                 recipientWallet = mockFraxAbstractWallet;
             } else if (allConfigs[_i].chainid == 324) {
                 // zksync
-                mockFraxOFT = mockFraxZkSync;
                 recipientWallet = mockFraxZkSyncWallet;
             } else {
                 // 1,81457,8453,34443,1329,252,196,146,57073,42161,10,137,43114,56,1101,80094,480,130
-                mockFraxOFT = mockFrax;
                 recipientWallet = mockFraxWallet;
             }
             SendParam memory _sendParam = SendParam({
