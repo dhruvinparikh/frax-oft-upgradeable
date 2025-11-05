@@ -1,5 +1,5 @@
 import { createPublicClient, defineChain, http } from "viem";
-import { abstract, arbitrum, aurora, avalanche, base, berachain, blast, bsc, fraxtal, ink, katana, linea, mainnet, mode, optimism, plasma, plumeMainnet, polygon, polygonZkEvm, scroll, sei, sonic, unichain, worldchain, xLayer, zksync } from "viem/chains";
+import { abstract, arbitrum, aurora, avalanche, base, berachain, blast, bsc, fraxtal, ink, linea, mainnet, mode, optimism, plumeMainnet, polygon, polygonZkEvm, scroll, sei, sonic, unichain, worldchain, xLayer, zksync } from "viem/chains";
 import { ChainInfo } from "./types";
 // import { Connection } from "@solana/web3.js";
 import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
@@ -32,6 +32,57 @@ export const hyperliquid = defineChain({
         },
     },
 })
+
+export const katana = defineChain({
+    id: 747474,
+    name: 'Katana',
+    nativeCurrency: {
+        decimals: 18,
+        name: 'Ethereum',
+        symbol: 'ETH',
+    },
+    rpcUrls: {
+        default: {
+            http: ['https://katana.drpc.org'],
+            webSocket: ['wss://katana.drpc.org'],
+        },
+    },
+    blockExplorers: {
+        default: { name: 'Explorer', url: 'https://katanascan.com/' },
+    },
+    contracts: {
+        multicall3: {
+            address: '0xcA11bde05977b3631167028862bE2a173976CA11',
+            blockCreated: 1,
+        },
+    },
+})
+
+export const plasma = defineChain({
+    id: 9745,
+    name: 'Plasma',
+    nativeCurrency: {
+        decimals: 18,
+        name: 'Plasma',
+        symbol: 'XPL',
+    },
+    rpcUrls: {
+        default: {
+            http: ['https://rpc.plasma.to'],
+            webSocket: ['wss://plasma.drpc.org'],
+        },
+    },
+    blockExplorers: {
+        default: { name: 'Explorer', url: 'https://plasmascan.to' },
+    },
+    contracts: {
+        multicall3: {
+            address: '0xcA11bde05977b3631167028862bE2a173976CA11',
+            blockCreated: 1,
+        },
+    },
+})
+
 
 export const chains: Record<string, ChainInfo> = {
     ethereum: {
