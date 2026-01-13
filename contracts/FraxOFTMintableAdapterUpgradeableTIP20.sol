@@ -78,17 +78,17 @@ contract FraxOFTMintableAdapterUpgradeableTIP20 is OFTAdapterUpgradeable, Supply
         MessagingFee memory _fee,
         address _refundAddress
     ) internal override returns (MessagingReceipt memory receipt) {
-        // If user's gas token is innerToken, pull tokens and swap to PATH_USD for LayerZero endpoint
+        // If user's gas token is not PATH_USD, pull tokens and swap to PATH_USD for LayerZero endpoint
         address userToken = StdPrecompiles.TIP_FEE_MANAGER.userTokens(msg.sender);
-        if (userToken == address(innerToken)) {
+        if (userToken != StdTokens.PATH_USD_ADDRESS) {
             uint128 amountIn = uint128(_fee.nativeFee);
-            // Pull innerToken from user for gas payment
-            ITIP20(address(innerToken)).transferFrom(msg.sender, address(this), amountIn);
-            // Approve StablecoinDEX to spend innerToken
-            ITIP20(address(innerToken)).approve(address(StdPrecompiles.STABLECOIN_DEX), amountIn);
-            // Swap innerToken for PATH_USD
+            // Pull user's gas token for gas payment
+            ITIP20(userToken).transferFrom(msg.sender, address(this), amountIn);
+            // Approve StablecoinDEX to spend user's token
+            ITIP20(userToken).approve(address(StdPrecompiles.STABLECOIN_DEX), amountIn);
+            // Swap user's token for PATH_USD
             StdPrecompiles.STABLECOIN_DEX.swapExactAmountIn({
-                tokenIn: address(innerToken),
+                tokenIn: userToken,
                 tokenOut: StdTokens.PATH_USD_ADDRESS,
                 amountIn: amountIn,
                 minAmountOut: amountIn

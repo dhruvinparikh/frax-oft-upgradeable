@@ -1,17 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.22;
 
-import { Test, console } from "forge-std/Test.sol";
+import { console } from "forge-std/Test.sol";
 import { ITIP20 } from "tempo-std/interfaces/ITIP20.sol";
-import { ITIP20Factory } from "tempo-std/interfaces/ITIP20Factory.sol";
-import { ITIP20RolesAuth } from "tempo-std/interfaces/ITIP20RolesAuth.sol";
 import { IStablecoinDEX } from "tempo-std/interfaces/IStablecoinDEX.sol";
 import { StdPrecompiles } from "tempo-std/StdPrecompiles.sol";
 import { StdTokens } from "tempo-std/StdTokens.sol";
+import { TempoTestHelpers } from "test/foundry/helpers/TempoTestHelpers.sol";
 
 /// @title StablecoinExchange POC Test
 /// @notice Verifies tempo-foundry's DEX precompile works correctly
-contract StablecoinExchangePOCTest is Test {
+contract StablecoinExchangePOCTest is TempoTestHelpers {
     IStablecoinDEX dex = StdPrecompiles.STABLECOIN_DEX;
     ITIP20 pathUsd = ITIP20(StdTokens.PATH_USD_ADDRESS);
 
@@ -23,19 +22,8 @@ contract StablecoinExchangePOCTest is Test {
     uint128 constant MIN_ORDER_AMOUNT = 10_000_000;
 
     function setUp() public {
-        testToken = ITIP20(
-            ITIP20Factory(address(StdPrecompiles.TIP20_FACTORY)).createToken(
-                "Test Token",
-                "TEST",
-                "USD",
-                pathUsd,
-                address(this),
-                keccak256("test-salt")
-            )
-        );
-
-        ITIP20RolesAuth(address(testToken)).grantRole(testToken.ISSUER_ROLE(), address(this));
-        ITIP20RolesAuth(StdTokens.PATH_USD_ADDRESS).grantRole(pathUsd.ISSUER_ROLE(), address(this));
+        testToken = _createTIP20("Test Token", "TEST", keccak256("test-salt"));
+        _grantPathUsdIssuerRole(address(this));
 
         testToken.mint(alice, 100_000e6);
         testToken.mint(bob, 100_000e6);

@@ -1,17 +1,15 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.22;
 
-import "forge-std/Test.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { FrxUSDPolicyAdminTempo } from "contracts/frxUsd/FrxUSDPolicyAdminTempo.sol";
 import { ITIP403Registry } from "tempo-std/interfaces/ITIP403Registry.sol";
 import { ITIP20 } from "tempo-std/interfaces/ITIP20.sol";
-import { ITIP20Factory } from "tempo-std/interfaces/ITIP20Factory.sol";
-import { ITIP20RolesAuth } from "tempo-std/interfaces/ITIP20RolesAuth.sol";
 import { StdPrecompiles } from "tempo-std/StdPrecompiles.sol";
 import { StdTokens } from "tempo-std/StdTokens.sol";
+import { TempoTestHelpers } from "test/foundry/helpers/TempoTestHelpers.sol";
 
-contract FrxUSDPolicyAdminTempoTest is Test {
+contract FrxUSDPolicyAdminTempoTest is TempoTestHelpers {
     FrxUSDPolicyAdminTempo public implementation;
     FrxUSDPolicyAdminTempo public policyAdmin;
     
@@ -375,21 +373,11 @@ contract FrxUSDPolicyAdminTempoTest is Test {
     // ---------------------------------------------------
 
     function _createTIP20WithPolicy() internal returns (ITIP20 token) {
-        // Create TIP20 token with test contract as admin
-        token = ITIP20(StdPrecompiles.TIP20_FACTORY.createToken(
-            "Test Token",
-            "TEST",
-            "USD",
-            StdTokens.PATH_USD,
-            address(this),
-            bytes32(uint256(1)) // salt
-        ));
+        // Create TIP20 token using shared helper
+        token = _createTIP20("Test Token", "TEST", bytes32(uint256(1)));
         
         // Assign policyAdmin's policy to token
         token.changeTransferPolicyId(policyAdmin.policyId());
-        
-        // Grant issuer role to mint tokens
-        ITIP20RolesAuth(address(token)).grantRole(token.ISSUER_ROLE(), address(this));
         
         // Mint tokens to users
         token.mint(alice, 1000e6);
