@@ -81,7 +81,8 @@ contract DeployFraxUSDFraxtalHubMintableTempoTestnet is DeployFraxOFTProtocol {
             symbol: "frxUSD",
             currency: "USD",
             quoteToken: StdTokens.PATH_USD,
-            admin: vm.addr(configDeployerPK)
+            admin: vm.addr(configDeployerPK),
+            salt: bytes32(0)
         });
         ITIP20 token = ITIP20(tokenAddr);
 

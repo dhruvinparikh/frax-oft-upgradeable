@@ -17,7 +17,8 @@ contract DeployfrxUSDTempo is BaseL0Script {
                 "frxUSD",
                 "USD",
                 StdTokens.PATH_USD,
-                vm.addr(configDeployerPK)
+                vm.addr(configDeployerPK),
+                bytes32(0)
             )
         );
     }

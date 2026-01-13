@@ -2,4 +2,8 @@ packages:
   - '.'
 
 onlyBuiltDependencies:
+  - "@fraxfinance/layerzero-v2-upgradeable"
   - "frax-standard-solidity"
+  - "frax-template"
+  - "tempo"
+  - "tempoxyz/tempo-std"
