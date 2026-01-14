@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: ISC
 pragma solidity ^0.8.19;
 
-import "./SetupDestinationFraxOFTFraxtalHub.sol";
+import "../../FraxtalHub/3_SetupDestinationFraxOFTFraxtalHub/SetupDestinationFraxOFTFraxtalHub.sol";
 
-// forge script scripts/FraxtalHub/3_SetupDestinationFraxOFTFraxtalHub/SetupDestinationFraxOFTFraxtalTempoTestnet.s.sol --rpc-url https://eth-sepolia.public.blastapi.io --broadcast
-contract SetupDestinationFraxOFTFraxtaTempoTestnet is SetupDestinationFraxOFTFraxtalHub {
+// forge script scripts/SepoliaHub/3_SetupDestinationFraxOFTSepoliaHub/SetupDestinationFraxOFTFraxtalTempoTestnet.s.sol --rpc-url https://eth-sepolia.public.blastapi.io --broadcast
+contract SetupDestinationFraxOFTSepoliaTempoTestnet is SetupDestinationFraxOFTFraxtalHub {
     constructor() {
         frxUsdOft = 0x6A678cEfcA10d5bBe4638D27C671CE7d56865037; // frxUSD lockbox on tempo testnet
 

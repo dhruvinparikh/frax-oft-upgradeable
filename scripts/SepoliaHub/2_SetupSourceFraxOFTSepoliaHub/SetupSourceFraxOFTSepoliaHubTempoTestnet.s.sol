@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: ISC
 pragma solidity ^0.8.19;
 
-import "./SetupSourceFraxOFTFraxtalHub.sol";
+import "../../FraxtalHub/2_SetupSourceFraxOFTFraxtalHub/SetupSourceFraxOFTFraxtalHub.sol";
 import { OFTAdapterUpgradeable } from "@fraxfinance/layerzero-v2-upgradeable/oapp/contracts/oft/OFTAdapterUpgradeable.sol";
 
-// forge script scripts/FraxtalHub/2_SetupSourceFraxOFTFraxtalHub/SetupSourceFraxOFTFraxtalHubTempoTestnet.s.sol --rpc-url https://rpc.testnet.tempo.xyz --broadcast
-contract SetupSourceFraxOFTFraxtalHubTempoTestnet is SetupSourceFraxOFTFraxtalHub {
+// forge script scripts/SepoliaHub/2_SetupSourceFraxOFTSepoliaHub/SetupSourceFraxOFTSepoliaHubTempoTestnet.s.sol --rpc-url https://rpc.testnet.tempo.xyz --broadcast
+contract SetupSourceFraxOFTSepoliaHubTempoTestnet is SetupSourceFraxOFTFraxtalHub {
     constructor() {
         frxUsdOft = 0x6A678cEfcA10d5bBe4638D27C671CE7d56865037; // frxUSD lockbox on tempo testnet
 

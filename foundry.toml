@@ -1,7 +1,7 @@
 [profile.default]
 solc_version = '0.8.22'
 # evm_version = 'paris'
-src = 'test/foundry/contracts'
+src = 'scripts'
 out = 'out'
 test = 'test/foundry'
 cache_path = 'cache'

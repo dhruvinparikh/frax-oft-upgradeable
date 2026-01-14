@@ -10,9 +10,9 @@ import { ITIP20RolesAuth } from "tempo-std/interfaces/ITIP20RolesAuth.sol";
 import { FraxOFTMintableAdapterUpgradeableTIP20 } from "contracts/FraxOFTMintableAdapterUpgradeableTIP20.sol";
 import { FrxUSDPolicyAdminTempo } from "contracts/frxUsd/FrxUSDPolicyAdminTempo.sol";
 
-// Deploy everything with a hub model vs. a spoke model where the only peer is Fraxtal
-// forge script scripts/FraxtalHub/1_DeployFraxOFTFraxtalHub/DeployFraxUSDFraxtalHubMintableTempoTestnet.s.sol --rpc-url $RPC_URL --broadcast
-contract DeployFraxUSDFraxtalHubMintableTempoTestnet is DeployFraxOFTProtocol {
+// Deploy everything with a hub model vs. a spoke model where the only peer is Sepolia
+// forge script scripts/SepoliaHub/1_DeployFraxOFTSepoliaHub/DeployFraxUSDSepoliaHubMintableTempoTestnet.s.sol --rpc-url https://rpc.testnet.tempo.xyz --broadcast
+contract DeployFraxUSDSepoliaHubMintableTempoTestnet is DeployFraxOFTProtocol {
     L0Config[] public tempConfigs;
     address[] public proxyOftWallets;
 
@@ -70,20 +70,30 @@ contract DeployFraxUSDFraxtalHubMintableTempoTestnet is DeployFraxOFTProtocol {
         // Implementation mock (0x8f1B9c1fd67136D525E14D96Efb3887a33f16250 if predeterministic)
         implementationMock = address(new ImplementationMock());
 
-        // Deploy frxUSD
-        (, frxUsdOft) = deployFrxUsdOFTUpgradeableAndProxy();
+        // Deploy frxUSD TIP20 token + OFT adapter + FrxUSDPolicyAdminTempo
+        address frxUsdOftImplementation;
+        (frxUsdOftImplementation, frxUsdOft) = deployFrxUsdOFTUpgradeableAndProxy();
+
+        // Log deployed policy admin addresses
+        console.log("FraxOFTMintableAdapterUpgradeableTIP20 proxy :", frxUsdOft);
+        console.log("FraxOFTMintableAdapterUpgradeableTIP20 implementation  :", frxUsdOftImplementation);
+        console.log("TIP20 frxUSD :", FraxOFTMintableAdapterUpgradeableTIP20(frxUsdOft).token());
+        console.log("FrxUSDPolicyAdminTempo implementation:", policyAdminImplementation);
+        console.log("FrxUSDPolicyAdminTempo proxy:", policyAdminProxy);
+        console.log("Policy ID:", FrxUSDPolicyAdminTempo(policyAdminProxy).policyId());
     }
 
     function deployFrxUsdOFTUpgradeableAndProxy() public override returns (address implementation, address proxy) {
         // Create TIP20 token via factory
-        address tokenAddr = StdPrecompiles.TIP20_FACTORY.createToken({
-            name: "Frax USD",
-            symbol: "frxUSD",
-            currency: "USD",
-            quoteToken: StdTokens.PATH_USD,
-            admin: vm.addr(configDeployerPK),
-            salt: bytes32(0)
-        });
+        address tokenAddr = 0x20C00000000000000000000000000000001116e8; // frxUSD TIP20 token on tempo testnet
+        // StdPrecompiles.TIP20_FACTORY.createToken({
+        //     name: "Frax USD",
+        //     symbol: "frxUSD",
+        //     currency: "USD",
+        //     quoteToken: StdTokens.PATH_USD,
+        //     admin: vm.addr(oftDeployerPK),
+        //     salt: bytes32(0)
+        // });
         ITIP20 token = ITIP20(tokenAddr);
 
         implementation = address(new FraxOFTMintableAdapterUpgradeableTIP20(address(token), broadcastConfig.endpoint));
@@ -187,3 +197,10 @@ contract DeployFraxUSDFraxtalHubMintableTempoTestnet is DeployFraxOFTProtocol {
         require(proxyOftWallets.length == 1, "Did not deploy proxy OFT wallet");
     }
 }
+
+//   FraxOFTMintableAdapterUpgradeableTIP20 proxy : 0x47a78e4b00775980594B540eD9544E46D40613B7
+//   FraxOFTMintableAdapterUpgradeableTIP20 implementation  : 0x129335370e46320D6F64789423D99dc1a355bC47
+//   TIP20 frxUSD : 0x20c000000000000000000000b6DF10e2D20b2B9b
+//   FrxUSDPolicyAdminTempo implementation: 0x3f0c6ac327C91BF136de572d04DAe456e7D3ac2F
+//   FrxUSDPolicyAdminTempo proxy: 0x5d8EB59A12Bc98708702305A7b032f4b69Dd5b5c
+//   Policy ID: 138573

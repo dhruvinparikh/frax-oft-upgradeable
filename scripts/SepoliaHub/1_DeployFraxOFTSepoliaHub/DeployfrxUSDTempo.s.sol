@@ -6,7 +6,7 @@ import { ITIP20 } from "tempo-std/interfaces/ITIP20.sol";
 import { StdPrecompiles } from "tempo-std/StdPrecompiles.sol";
 import { StdTokens } from "tempo-std/StdTokens.sol";
 
-// forge script ./scripts/FraxtalHub/1_DeployFraxOFTFraxtalHub/DeployfrxUSDTempo.s.sol --rpc-url https://rpc.testnet.tempo.xyz --broadcast
+// forge script ./scripts/SepoliaHub/1_DeployFraxOFTSepoliaHub/DeployfrxUSDTempo.s.sol --rpc-url https://rpc.testnet.tempo.xyz --broadcast
 contract DeployfrxUSDTempo is BaseL0Script {
     function setUp() public override {}
 
@@ -17,9 +17,10 @@ contract DeployfrxUSDTempo is BaseL0Script {
                 "frxUSD",
                 "USD",
                 StdTokens.PATH_USD,
-                vm.addr(configDeployerPK),
+                vm.addr(oftDeployerPK),
                 bytes32(0)
             )
         );
+        console.log("frxUSD TIP20 token address:", address(token));
     }
 }
