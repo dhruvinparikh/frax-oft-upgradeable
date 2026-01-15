@@ -27,7 +27,7 @@ contract FraxOFTMintableAdapterUpgradeableTIP20 is OFTAdapterUpgradeable, Supply
 
     /// @notice Recover all tokens to owner
     /// @dev added in v1.1.0
-    function recover() external {
+    function recover() external onlyOwner {
         uint256 balance = innerToken.balanceOf(address(this));
         if (balance == 0) return;
 
@@ -71,39 +71,34 @@ contract FraxOFTMintableAdapterUpgradeableTIP20 is OFTAdapterUpgradeable, Supply
     }
 
     /// @inheritdoc OAppSenderUpgradeable
-    function _lzSend(
-        uint32 _dstEid,
-        bytes memory _message,
-        bytes memory _options,
-        MessagingFee memory _fee,
-        address _refundAddress
-    ) internal override returns (MessagingReceipt memory receipt) {
-        // If user's gas token is not PATH_USD, pull tokens and swap to PATH_USD for LayerZero endpoint
+    /// @dev Handles gas payment for EndpointV2Alt which uses PATH_USD ERC20 as native token.
+    ///      Swaps user's TIP20 gas token to PATH_USD if needed, then transfers to endpoint.
+    function _payNative(uint256 _nativeFee) internal virtual override returns (uint256 nativeFee) {
         address userToken = StdPrecompiles.TIP_FEE_MANAGER.userTokens(msg.sender);
+
         if (userToken != StdTokens.PATH_USD_ADDRESS) {
-            uint128 amountIn = uint128(_fee.nativeFee);
-            // Pull user's gas token for gas payment
-            ITIP20(userToken).transferFrom(msg.sender, address(this), amountIn);
-            // Approve StablecoinDEX to spend user's token
-            ITIP20(userToken).approve(address(StdPrecompiles.STABLECOIN_DEX), amountIn);
-            // Swap user's token for PATH_USD
-            StdPrecompiles.STABLECOIN_DEX.swapExactAmountIn({
+            // Quote swap amount needed to receive exactly _nativeFee PATH_USD
+            uint128 _userTokenAmount = StdPrecompiles.STABLECOIN_DEX.quoteSwapExactAmountOut({
                 tokenIn: userToken,
                 tokenOut: StdTokens.PATH_USD_ADDRESS,
-                amountIn: amountIn,
-                minAmountOut: amountIn
+                amountOut: uint128(_nativeFee)
             });
+            // Pull user's gas token and swap to PATH_USD
+            ITIP20(userToken).transferFrom(msg.sender, address(this), _userTokenAmount);
+            ITIP20(userToken).approve(address(StdPrecompiles.STABLECOIN_DEX), _userTokenAmount);
+            StdPrecompiles.STABLECOIN_DEX.swapExactAmountOut({
+                tokenIn: userToken,
+                tokenOut: StdTokens.PATH_USD_ADDRESS,
+                amountOut: uint128(_nativeFee),
+                maxAmountIn: _userTokenAmount
+            });
+        } else {
+            // Pull PATH_USD directly from user
+            StdTokens.PATH_USD.transferFrom(msg.sender, address(this), _nativeFee);
         }
 
-        // @dev Push corresponding fees to the endpoint, any excess is sent back to the _refundAddress from the endpoint.
-        uint256 messageValue = _payNative(_fee.nativeFee);
-        if (_fee.lzTokenFee > 0) _payLzToken(_fee.lzTokenFee);
-
-        return
-            endpoint.send{ value: messageValue }(
-                // solhint-disable-next-line check-send-result
-                MessagingParams(_dstEid, _getPeerOrRevert(_dstEid), _message, _options, _fee.lzTokenFee > 0),
-                _refundAddress
-            );
+        // Transfer PATH_USD to endpoint (EndpointV2Alt._suppliedNative() checks its balance)
+        StdTokens.PATH_USD.transfer(address(endpoint), _nativeFee);
+        return 0;
     }
 }
