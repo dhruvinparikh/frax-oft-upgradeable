@@ -210,44 +210,6 @@ contract FraxOFTMintableAdapterUpgradeableTIP20Test is TempoTestHelpers {
     // Recovery Tests
     // ---------------------------------------------------
 
-    /// @dev Anyone can call recover() - no access control
-    function test_Recover_anyoneCanCall() external {
-        uint256 stuckBalance = 100e6;
-        frxUsdToken.mint(address(adapter), stuckBalance);
-
-        uint256 ownerBalanceBefore = frxUsdToken.balanceOf(contractOwner);
-
-        // Alice (non-owner) calls recover
-        vm.prank(alice);
-        adapter.recover();
-
-        // Tokens still go to owner, not caller
-        assertEq(frxUsdToken.balanceOf(contractOwner), ownerBalanceBefore + stuckBalance);
-        assertEq(frxUsdToken.balanceOf(alice), 0);
-        assertEq(frxUsdToken.balanceOf(address(adapter)), 0);
-    }
-
-    function test_Recover_transfersTokensToOwner() external {
-        uint256 stuckBalance = 100e6;
-
-        frxUsdToken.mint(address(adapter), stuckBalance);
-
-        uint256 ownerBalanceBefore = frxUsdToken.balanceOf(contractOwner);
-
-        adapter.recover();
-
-        assertEq(frxUsdToken.balanceOf(contractOwner), ownerBalanceBefore + stuckBalance);
-        assertEq(frxUsdToken.balanceOf(address(adapter)), 0);
-    }
-
-    function test_Recover_noopWhenBalanceZero() external {
-        uint256 ownerBalanceBefore = frxUsdToken.balanceOf(contractOwner);
-
-        adapter.recover();
-
-        assertEq(frxUsdToken.balanceOf(contractOwner), ownerBalanceBefore);
-    }
-
     /// @dev Only owner can call recoverERC20
     function test_RecoverERC20_onlyOwner() external {
         // Create another token to recover

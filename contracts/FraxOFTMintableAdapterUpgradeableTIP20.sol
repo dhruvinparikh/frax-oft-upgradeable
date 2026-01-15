@@ -30,15 +30,6 @@ contract FraxOFTMintableAdapterUpgradeableTIP20 is OFTAdapterUpgradeable, Supply
         _transferOwnership(_delegate);
     }
 
-    /// @notice Recover all tokens to owner
-    /// @dev added in v1.1.0
-    function recover() external {
-        uint256 balance = innerToken.balanceOf(address(this));
-        if (balance == 0) return;
-
-        innerToken.transfer(owner(), balance);
-    }
-
     /// @notice Added to support tokens
     /// @param _tokenAddress The token to recover
     /// @param _tokenAmount The amount to recover
