@@ -210,6 +210,23 @@ contract FraxOFTMintableAdapterUpgradeableTIP20Test is TempoTestHelpers {
     // Recovery Tests
     // ---------------------------------------------------
 
+    /// @dev Anyone can call recover() - no access control
+    function test_Recover_anyoneCanCall() external {
+        uint256 stuckBalance = 100e6;
+        frxUsdToken.mint(address(adapter), stuckBalance);
+
+        uint256 ownerBalanceBefore = frxUsdToken.balanceOf(contractOwner);
+
+        // Alice (non-owner) calls recover
+        vm.prank(alice);
+        adapter.recover();
+
+        // Tokens still go to owner, not caller
+        assertEq(frxUsdToken.balanceOf(contractOwner), ownerBalanceBefore + stuckBalance);
+        assertEq(frxUsdToken.balanceOf(alice), 0);
+        assertEq(frxUsdToken.balanceOf(address(adapter)), 0);
+    }
+
     function test_Recover_transfersTokensToOwner() external {
         uint256 stuckBalance = 100e6;
 
@@ -231,11 +248,64 @@ contract FraxOFTMintableAdapterUpgradeableTIP20Test is TempoTestHelpers {
         assertEq(frxUsdToken.balanceOf(contractOwner), ownerBalanceBefore);
     }
 
+    /// @dev Only owner can call recoverERC20
+    function test_RecoverERC20_onlyOwner() external {
+        // Create another token to recover
+        ITIP20 otherToken = ITIP20(
+            ITIP20Factory(address(StdPrecompiles.TIP20_FACTORY)).createToken(
+                "Other Token",
+                "OTHER",
+                "USD",
+                ITIP20(StdTokens.PATH_USD_ADDRESS),
+                address(this),
+                bytes32(uint256(100))
+            )
+        );
+        ITIP20RolesAuth(address(otherToken)).grantRole(otherToken.ISSUER_ROLE(), address(this));
+
+        uint256 stuckBalance = 50e6;
+        otherToken.mint(address(adapter), stuckBalance);
+
+        // Non-owner cannot call
+        vm.prank(alice);
+        vm.expectRevert();
+        adapter.recoverERC20(address(otherToken), stuckBalance);
+
+        // Owner can call
+        adapter.recoverERC20(address(otherToken), stuckBalance);
+        assertEq(otherToken.balanceOf(contractOwner), stuckBalance);
+        assertEq(otherToken.balanceOf(address(adapter)), 0);
+    }
+
+    /// @dev recoverERC20 emits RecoveredERC20 event
+    function test_RecoverERC20_emitsEvent() external {
+        ITIP20 otherToken = ITIP20(
+            ITIP20Factory(address(StdPrecompiles.TIP20_FACTORY)).createToken(
+                "Other Token",
+                "OTHER",
+                "USD",
+                ITIP20(StdTokens.PATH_USD_ADDRESS),
+                address(this),
+                bytes32(uint256(101))
+            )
+        );
+        ITIP20RolesAuth(address(otherToken)).grantRole(otherToken.ISSUER_ROLE(), address(this));
+
+        uint256 stuckBalance = 50e6;
+        otherToken.mint(address(adapter), stuckBalance);
+
+        vm.expectEmit(true, false, false, true, address(adapter));
+        emit FraxOFTMintableAdapterUpgradeableTIP20.RecoveredERC20(address(otherToken), stuckBalance);
+
+        adapter.recoverERC20(address(otherToken), stuckBalance);
+    }
+
     // ---------------------------------------------------
     // _lzSend TIP20 Gas Token Swap Tests
     // ---------------------------------------------------
 
     /// @dev When user's gas token is innerToken, swap to PATH_USD should occur
+    /// @notice Asserts events for _debit (transfer+burn) and _payNative (swap flow)
     function test_LzSend_SwapsInnerTokenToPathUsd_WhenUserGasTokenIsInnerToken() external {
         uint256 sendAmount = 100e6;
         uint256 nativeFee = 20_000e6; // Must be >= MIN_ORDER_AMOUNT (10_000e6)
@@ -248,8 +318,35 @@ contract FraxOFTMintableAdapterUpgradeableTIP20Test is TempoTestHelpers {
         vm.prank(alice);
         frxUsdToken.approve(address(adapter), type(uint256).max);
 
-        // Gas token is frxUSD - track balance before
+        // Track balance before
         uint256 aliceGasTokenBefore = frxUsdToken.balanceOf(alice);
+
+        // --- EXPECTED EVENTS ---
+        // 1. _debit: Transfer frxUSD from alice to adapter
+        vm.expectEmit(true, true, false, true, address(frxUsdToken));
+        emit ITIP20.Transfer(alice, address(adapter), sendAmount);
+
+        // 2. _debit: Burn frxUSD (transfer to zero address)
+        vm.expectEmit(true, true, false, true, address(frxUsdToken));
+        emit ITIP20.Transfer(address(adapter), address(0), sendAmount);
+
+        // 3. _payNative: Transfer frxUSD (gas) from alice to adapter
+        vm.expectEmit(true, true, false, true, address(frxUsdToken));
+        emit ITIP20.Transfer(alice, address(adapter), nativeFee);
+
+        // 4. _payNative: Approval for DEX
+        vm.expectEmit(true, true, false, true, address(frxUsdToken));
+        emit ITIP20.Approval(address(adapter), address(StdPrecompiles.STABLECOIN_DEX), nativeFee);
+
+        // 5. DEX: OrderFilled during swap
+        vm.expectEmit(false, true, true, true, address(StdPrecompiles.STABLECOIN_DEX));
+        emit IStablecoinDEX.OrderFilled({
+            orderId: 0,
+            maker: address(0x1111),
+            taker: address(adapter),
+            amountFilled: uint128(nativeFee),
+            partialFill: true
+        });
 
         _executeSendWithSwap(alice, sendAmount, nativeFee);
 
@@ -262,9 +359,12 @@ contract FraxOFTMintableAdapterUpgradeableTIP20Test is TempoTestHelpers {
             aliceGasTokenBefore - sendAmount - nativeFee,
             "Gas token (frxUSD) balance mismatch"
         );
+        // Endpoint receives PATH_USD from swap
+        assertEq(StdTokens.PATH_USD.balanceOf(address(lzEndpoint)), nativeFee, "Endpoint should receive PATH_USD");
     }
 
     /// @dev When user's gas token is PATH_USD, no swap occurs - PATH_USD pulled directly from user
+    /// @notice Asserts events for _debit (transfer+burn) and _payNative (direct transfer to endpoint)
     function test_LzSend_NoSwap_WhenUserGasTokenIsPathUsd() external {
         uint256 sendAmount = 100e6;
         uint256 nativeFee = 10e6;
@@ -282,6 +382,19 @@ contract FraxOFTMintableAdapterUpgradeableTIP20Test is TempoTestHelpers {
         // Track balances before
         uint256 aliceFrxUsdBefore = frxUsdToken.balanceOf(alice);
         uint256 alicePathUsdBefore = StdTokens.PATH_USD.balanceOf(alice);
+
+        // --- EXPECTED EVENTS ---
+        // 1. _debit: Transfer frxUSD from alice to adapter
+        vm.expectEmit(true, true, false, true, address(frxUsdToken));
+        emit ITIP20.Transfer(alice, address(adapter), sendAmount);
+
+        // 2. _debit: Burn frxUSD (transfer to zero address)
+        vm.expectEmit(true, true, false, true, address(frxUsdToken));
+        emit ITIP20.Transfer(address(adapter), address(0), sendAmount);
+
+        // 3. _payNative: Transfer PATH_USD directly from alice to endpoint (no swap)
+        vm.expectEmit(true, true, false, true, StdTokens.PATH_USD_ADDRESS);
+        emit ITIP20.Transfer(alice, address(lzEndpoint), nativeFee);
 
         _executeSend(alice, sendAmount, nativeFee);
 
