@@ -7,8 +7,19 @@ import { StdPrecompiles } from "tempo-std/StdPrecompiles.sol";
 import { StdTokens } from "tempo-std/StdTokens.sol";
 import { ITIP20 } from "tempo-std/interfaces/ITIP20.sol";
 import { ITIP20RolesAuth } from "tempo-std/interfaces/ITIP20RolesAuth.sol";
+import { ITIP20Factory } from "tempo-std/interfaces/ITIP20Factory.sol";
 import { FraxOFTMintableAdapterUpgradeableTIP20 } from "contracts/FraxOFTMintableAdapterUpgradeableTIP20.sol";
 import { FrxUSDPolicyAdminTempo } from "contracts/frxUsd/FrxUSDPolicyAdminTempo.sol";
+
+interface ITIP20FactoryTemp {
+    function createToken(
+        string memory name,
+        string memory symbol,
+        string memory currency,
+        ITIP20 quoteToken,
+        address admin
+    ) external returns (address);
+}
 
 // Deploy everything with a hub model vs. a spoke model where the only peer is Sepolia
 // forge script scripts/SepoliaHub/1_DeployFraxOFTSepoliaHub/DeployFraxUSDSepoliaHubMintableTempoTestnet.s.sol --rpc-url https://rpc.testnet.tempo.xyz --broadcast
@@ -85,8 +96,8 @@ contract DeployFraxUSDSepoliaHubMintableTempoTestnet is DeployFraxOFTProtocol {
 
     function deployFrxUsdOFTUpgradeableAndProxy() public override returns (address implementation, address proxy) {
         // Create TIP20 token via factory
-        address tokenAddr = 0x20C00000000000000000000000000000001116e8; // frxUSD TIP20 token on tempo testnet
-        // StdPrecompiles.TIP20_FACTORY.createToken({
+        address tokenAddr = 0x20C00000000000000000000000000000001116e8;
+        // ITIP20FactoryTemp(StdPrecompiles.TIP20_FACTORY_ADDRESS).createToken({
         //     name: "Frax USD",
         //     symbol: "frxUSD",
         //     currency: "USD",

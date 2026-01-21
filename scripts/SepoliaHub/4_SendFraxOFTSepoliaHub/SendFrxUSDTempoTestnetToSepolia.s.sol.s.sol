@@ -23,7 +23,7 @@ contract SendFrxUSDTempoTestnetToSepolia is Script {
     address internal constant TOKEN = 0x20C00000000000000000000000000000001116e8;
 
     // frxUSD OFT adapter on Tempo testnet
-    address internal constant OFT_ADAPTER = 0x6A678cEfcA10d5bBe4638D27C671CE7d56865037;
+    address internal constant OFT_ADAPTER = 0x8Ee7E00790c18f28B65BC4771F2a8273D88f2A54;
 
     // Ethereum Sepolia EID
     uint32 internal constant DST_EID = 40161;
@@ -37,12 +37,9 @@ contract SendFrxUSDTempoTestnetToSepolia is Script {
     function run() external {
         vm.startBroadcast(configDeployerPK);
 
-        address sender = msg.sender;
+        address sender = vm.addr(configDeployerPK);
 
         StdPrecompiles.TIP_FEE_MANAGER.setUserToken(TOKEN);
-
-        // Add DEX liquidity for frxUSD <-> PATH_USD swaps (required for gas token swaps)
-        addDexLiquidity();
 
         // 1. Build SendParam for cross-chain transfer
         SendParam memory sendParam = SendParam({
@@ -55,43 +52,15 @@ contract SendFrxUSDTempoTestnetToSepolia is Script {
             oftCmd: ""
         });
 
-        // 2. Quote the fee
+        // 2. Quote the fee in the configured gas token (PATH_USD via TIP_FEE_MANAGER)
         MessagingFee memory fee = IOFT(OFT_ADAPTER).quoteSend(sendParam, false);
 
         // 3. Approve the OFT adapter to spend tokens
         ITIP20(TOKEN).approve(OFT_ADAPTER, AMOUNT + fee.nativeFee);
 
-        // 4. Send tokens cross-chain
-        IOFT(OFT_ADAPTER).send{ value: fee.nativeFee }(sendParam, fee, sender);
+        // 4. Send tokens cross-chain, paying fees either in TIP20 or native
+        IOFT(OFT_ADAPTER).send(sendParam, fee, sender);
 
         vm.stopBroadcast();
-    }
-
-    /// @notice Add liquidity to DEX for frxUSD <-> PATH_USD swaps
-    /// @dev This allows users to pay gas fees with frxUSD token
-    /// @dev Only creates pair if it doesn't exist, only adds liquidity if < 10 tokens
-    function addDexLiquidity() internal {
-        IStablecoinDEX dex = StdPrecompiles.STABLECOIN_DEX;
-
-        // Check if pair exists by querying books
-        bytes32 key = dex.pairKey(TOKEN, StdTokens.PATH_USD_ADDRESS);
-        (address base, , , ) = dex.books(key);
-
-        // Create DEX pair only if it doesn't exist
-        if (base == address(0)) {
-            dex.createPair(TOKEN);
-        }
-
-        // Check current liquidity at tick 0 (bid side)
-        (, , uint128 totalLiquidity) = dex.getTickLevel(TOKEN, 0, true);
-
-        // Only add liquidity if less than 10 TIP20 tokens (10e6 with 6 decimals)
-        uint256 minLiquidity = 10e6;
-        if (totalLiquidity < minLiquidity) {
-            // Add liquidity: place bid order
-            uint256 liquidityAmount = 100e6; // 100 PATH_USD (6 decimals)
-            ITIP20(StdTokens.PATH_USD_ADDRESS).approve(address(dex), liquidityAmount);
-            dex.place(TOKEN, uint128(liquidityAmount), true, 0);
-        }
     }
 }

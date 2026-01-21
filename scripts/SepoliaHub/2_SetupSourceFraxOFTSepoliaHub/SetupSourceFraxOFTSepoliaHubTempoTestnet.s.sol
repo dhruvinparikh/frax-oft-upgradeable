@@ -7,7 +7,7 @@ import { OFTAdapterUpgradeable } from "@fraxfinance/layerzero-v2-upgradeable/oap
 // forge script scripts/SepoliaHub/2_SetupSourceFraxOFTSepoliaHub/SetupSourceFraxOFTSepoliaHubTempoTestnet.s.sol --rpc-url https://rpc.testnet.tempo.xyz --broadcast
 contract SetupSourceFraxOFTSepoliaHubTempoTestnet is SetupSourceFraxOFTFraxtalHub {
     constructor() {
-        frxUsdOft = 0x6A678cEfcA10d5bBe4638D27C671CE7d56865037; // frxUSD lockbox on tempo testnet
+        frxUsdOft = 0x8Ee7E00790c18f28B65BC4771F2a8273D88f2A54; // frxUSD lockbox on tempo testnet
 
         proxyOfts.push(frxUsdOft);
     }

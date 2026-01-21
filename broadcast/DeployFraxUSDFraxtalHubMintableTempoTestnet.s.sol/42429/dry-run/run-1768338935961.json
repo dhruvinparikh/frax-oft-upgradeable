@@ -310,14 +310,14 @@
       "contractAddress": "0x20c000000000000000000000b6df10e2d20b2b9b",
       "function": "changeTransferPolicyId(uint64)",
       "arguments": [
-        "138469"
+        "138058"
       ],
       "transaction": {
         "from": "0x9c9dd956b413cdbd81690c9394a6b4d22afe6745",
         "to": "0x20c000000000000000000000b6df10e2d20b2b9b",
         "gas": "0xacde",
         "value": "0x0",
-        "input": "0xfd5e94200000000000000000000000000000000000000000000000000000000000021ce5",
+        "input": "0xfd5e94200000000000000000000000000000000000000000000000000000000000021b4a",
         "nonce": "0x21",
         "chainId": "0xa5bd",
         "feeToken": null,
@@ -432,7 +432,7 @@
   "libraries": [],
   "pending": [],
   "returns": {},
-  "timestamp": 1768347057138,
+  "timestamp": 1768338935961,
   "chain": 42429,
   "commit": "5277c09"
 }
