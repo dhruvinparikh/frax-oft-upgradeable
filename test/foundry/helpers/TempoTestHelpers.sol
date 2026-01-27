@@ -17,6 +17,9 @@ abstract contract TempoTestHelpers is Test {
     // ---------------------------------------------------
     
     /// @dev Create a TIP20 token via factory with issuer role granted to caller
+    /// @param name Token name
+    /// @param symbol Token symbol  
+    /// @param salt Salt for deterministic deployment
     function _createTIP20(
         string memory name,
         string memory symbol,
@@ -51,16 +54,27 @@ abstract contract TempoTestHelpers is Test {
     // DEX Liquidity Helpers
     // ---------------------------------------------------
     
-    /// @dev Add liquidity to DEX by placing a bid order (PATH_USD for token)
-    /// @notice Caller must have PATH_USD issuer role granted before calling
+    /// @dev Add liquidity to DEX by placing both bid and ask orders
+    /// @notice Places bid order (PATH_USD for token) AND ask order (token for PATH_USD)
+    ///         This allows both directions of swaps to work in tests.
+    ///         Caller must have PATH_USD issuer role granted before calling.
     function _addDexLiquidity(address token, uint256 amount) internal {
         address liquidityProvider = address(0x1111);
         
+        // Mint both PATH_USD and the token for the liquidity provider
         ITIP20(StdTokens.PATH_USD_ADDRESS).mint(liquidityProvider, amount * 2);
+        ITIP20(token).mint(liquidityProvider, amount * 2);
         
         vm.startPrank(liquidityProvider);
+        
+        // Place bid order: buy token with PATH_USD (allows selling token for PATH_USD)
         ITIP20(StdTokens.PATH_USD_ADDRESS).approve(address(StdPrecompiles.STABLECOIN_DEX), amount * 2);
         StdPrecompiles.STABLECOIN_DEX.place(token, uint128(amount), true, 0);
+        
+        // Place ask order: sell token for PATH_USD (allows buying token with PATH_USD)
+        ITIP20(token).approve(address(StdPrecompiles.STABLECOIN_DEX), amount * 2);
+        StdPrecompiles.STABLECOIN_DEX.place(token, uint128(amount), false, 0);
+        
         vm.stopPrank();
     }
     

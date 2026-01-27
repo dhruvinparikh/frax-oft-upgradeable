@@ -3,7 +3,6 @@ pragma solidity ^0.8.22;
 
 import { FraxOFTMintableAdapterUpgradeableTIP20 } from "contracts/FraxOFTMintableAdapterUpgradeableTIP20.sol";
 import { ITIP20 } from "tempo-std/interfaces/ITIP20.sol";
-import { ITIP20Factory } from "tempo-std/interfaces/ITIP20Factory.sol";
 import { ITIP20RolesAuth } from "tempo-std/interfaces/ITIP20RolesAuth.sol";
 import { IStablecoinDEX } from "tempo-std/interfaces/IStablecoinDEX.sol";
 import { StdPrecompiles } from "tempo-std/StdPrecompiles.sol";
@@ -52,6 +51,17 @@ contract MockLzEndpoint {
                 nonce: nonce,
                 fee: MessagingFee({ nativeFee: lastNativeFee, lzTokenFee: 0 })
             });
+    }
+
+    /// @dev Mock quote function returning a fixed nativeFee for testing
+    uint256 public mockNativeFee = 10e6;
+
+    function setMockNativeFee(uint256 _fee) external {
+        mockNativeFee = _fee;
+    }
+
+    function quote(MessagingParams calldata, address) external view returns (MessagingFee memory) {
+        return MessagingFee({ nativeFee: mockNativeFee, lzTokenFee: 0 });
     }
 
     /// @dev Returns the native ERC20 token (PATH_USD on Tempo)
@@ -213,17 +223,7 @@ contract FraxOFTMintableAdapterUpgradeableTIP20Test is TempoTestHelpers {
     /// @dev Only owner can call recoverERC20
     function test_RecoverERC20_onlyOwner() external {
         // Create another token to recover
-        ITIP20 otherToken = ITIP20(
-            ITIP20Factory(address(StdPrecompiles.TIP20_FACTORY)).createToken(
-                "Other Token",
-                "OTHER",
-                "USD",
-                ITIP20(StdTokens.PATH_USD_ADDRESS),
-                address(this),
-                bytes32(uint256(100))
-            )
-        );
-        ITIP20RolesAuth(address(otherToken)).grantRole(otherToken.ISSUER_ROLE(), address(this));
+        ITIP20 otherToken = _createTIP20("Other Token", "OTHER", bytes32(uint256(100)));
 
         uint256 stuckBalance = 50e6;
         otherToken.mint(address(adapter), stuckBalance);
@@ -241,17 +241,7 @@ contract FraxOFTMintableAdapterUpgradeableTIP20Test is TempoTestHelpers {
 
     /// @dev recoverERC20 emits RecoveredERC20 event
     function test_RecoverERC20_emitsEvent() external {
-        ITIP20 otherToken = ITIP20(
-            ITIP20Factory(address(StdPrecompiles.TIP20_FACTORY)).createToken(
-                "Other Token",
-                "OTHER",
-                "USD",
-                ITIP20(StdTokens.PATH_USD_ADDRESS),
-                address(this),
-                bytes32(uint256(101))
-            )
-        );
-        ITIP20RolesAuth(address(otherToken)).grantRole(otherToken.ISSUER_ROLE(), address(this));
+        ITIP20 otherToken = _createTIP20("Other Token Emit", "OTHERE", bytes32(uint256(101)));
 
         uint256 stuckBalance = 50e6;
         otherToken.mint(address(adapter), stuckBalance);
@@ -380,18 +370,7 @@ contract FraxOFTMintableAdapterUpgradeableTIP20Test is TempoTestHelpers {
     /// @notice Asserts events and state changes during the _payNative swap flow
     function test_LzSend_SwapsAnyTip20ToPathUsd() external {
         // Create another TIP20 token for gas payment
-        ITIP20 otherToken = ITIP20(
-            ITIP20Factory(address(StdPrecompiles.TIP20_FACTORY)).createToken(
-                "Other Token",
-                "OTHER",
-                "USD",
-                ITIP20(StdTokens.PATH_USD_ADDRESS),
-                address(this),
-                bytes32(uint256(2))
-            )
-        );
-        ITIP20RolesAuth(address(otherToken)).grantRole(otherToken.ISSUER_ROLE(), address(this));
-        StdPrecompiles.STABLECOIN_DEX.createPair(address(otherToken));
+        ITIP20 otherToken = _createTIP20WithDexPair("Other Token Swap", "OTHERS", bytes32(uint256(2)));
 
         uint256 sendAmount = 100e6;
         uint256 nativeFee = 20_000e6;
@@ -487,6 +466,76 @@ contract FraxOFTMintableAdapterUpgradeableTIP20Test is TempoTestHelpers {
 
         assertEq(adapter.totalTransferTo(DST_EID), sendAmount);
         assertEq(frxUsdToken.totalSupply(), totalSupplyBefore - sendAmount);
+    }
+
+    // ---------------------------------------------------
+    // _quote Override Tests
+    // ---------------------------------------------------
+
+    /// @dev Helper to build a SendParam suitable for quoting (minAmountLD = 0 to avoid slippage checks)
+    function _buildQuoteSendParam(uint256 sendAmount) internal view returns (SendParam memory) {
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200_000, 0);
+        return
+            SendParam({
+                dstEid: DST_EID,
+                to: bytes32(uint256(uint160(bob))),
+                amountLD: sendAmount,
+                minAmountLD: 0, // Use 0 for quote to avoid slippage check
+                extraOptions: options,
+                composeMsg: "",
+                oftCmd: ""
+            });
+    }
+
+    /// @dev When user's gas token is the endpoint's native token, quoteSend returns fee without conversion
+    function test_QuoteSend_ReturnsNativeFee_WhenUserGasTokenIsEndpointNative() external {
+        uint256 sendAmount = 100e6;
+        uint256 expectedFee = 10e6; // mockNativeFee default
+
+        _setUserGasToken(alice, StdTokens.PATH_USD_ADDRESS);
+        _setupPeer();
+
+        SendParam memory sendParam = _buildQuoteSendParam(sendAmount);
+        vm.prank(alice);
+        MessagingFee memory fee = adapter.quoteSend(sendParam, false);
+
+        assertEq(fee.nativeFee, expectedFee, "Fee should be in endpoint native token terms (no conversion)");
+        assertEq(fee.lzTokenFee, 0, "lzTokenFee should be 0");
+    }
+
+    /// @dev When user's gas token is innerToken (frxUSD), quoteSend returns fee converted to frxUSD
+    function test_QuoteSend_ReturnsConvertedFee_WhenUserGasTokenIsInnerToken() external {
+        uint256 sendAmount = 100e6;
+        uint256 nativeFee = 20_000e6; // Must be >= MIN_ORDER_AMOUNT for DEX quote
+
+        lzEndpoint.setMockNativeFee(nativeFee);
+        _setUserGasToken(alice, address(frxUsdToken));
+        _addDexLiquidity(address(frxUsdToken), nativeFee * 2);
+        _setupPeer();
+
+        SendParam memory sendParam = _buildQuoteSendParam(sendAmount);
+        vm.prank(alice);
+        MessagingFee memory fee = adapter.quoteSend(sendParam, false);
+
+        // Fee should be converted from endpoint native token to frxUSD via DEX quote
+        // Since stablecoins are 1:1, the fee should be approximately equal
+        assertGe(fee.nativeFee, nativeFee, "Converted fee should be >= endpoint native fee (accounting for swap)");
+        assertEq(fee.lzTokenFee, 0, "lzTokenFee should be 0");
+    }
+
+    /// @dev quoteSend with zero nativeFee returns zero (no conversion needed)
+    function test_QuoteSend_ReturnsZero_WhenNativeFeeIsZero() external {
+        uint256 sendAmount = 100e6;
+
+        lzEndpoint.setMockNativeFee(0);
+        _setUserGasToken(alice, address(frxUsdToken));
+        _setupPeer();
+
+        SendParam memory sendParam = _buildQuoteSendParam(sendAmount);
+        vm.prank(alice);
+        MessagingFee memory fee = adapter.quoteSend(sendParam, false);
+
+        assertEq(fee.nativeFee, 0, "Fee should be 0 when no native fee required");
     }
 
     // ---------------------------------------------------

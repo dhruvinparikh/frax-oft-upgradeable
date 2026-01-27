@@ -35,6 +35,17 @@ contract EndpointV2AltMockOz4 {
             });
     }
 
+    /// @dev Mock quote function returning a fixed nativeFee for testing
+    uint256 public mockNativeFee = 10e6;
+
+    function setMockNativeFee(uint256 _fee) external {
+        mockNativeFee = _fee;
+    }
+
+    function quote(MessagingParams calldata, address) external view returns (MessagingFee memory) {
+        return MessagingFee({ nativeFee: mockNativeFee, lzTokenFee: 0 });
+    }
+
     function nativeToken() external view returns (address) {
         return nativeErc20;
     }

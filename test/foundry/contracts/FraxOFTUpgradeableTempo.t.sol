@@ -137,7 +137,7 @@ contract FraxOFTUpgradeableTempoTest is TempoTestHelpers, LZTestHelperOz4 {
         uint256 sendAmount = 1_000_000_000_000; // avoid dust
         uint256 nativeFee = 20_000e6;
 
-        ITIP20 gasToken = _createTIP20WithDexPair("Other", "OTHER", bytes32(uint256(2)));
+        ITIP20 gasToken = _createTIP20WithDexPair("Other", "OTHER", keccak256("test_AltEndpoint_PayNative_SwapToPathUsd"));
         _setUserGasToken(alice, address(gasToken));
         _setupPeer();
 
@@ -204,5 +204,56 @@ contract FraxOFTUpgradeableTempoTest is TempoTestHelpers, LZTestHelperOz4 {
 
         assertEq(dstOft.balanceOf(bob), sendAmount, "dst should mint to recipient");
         assertEq(StdTokens.PATH_USD.balanceOf(address(lzEndpoint)), nativeFee, "src endpoint should hold PATH_USD fee");
+    }
+
+    // ---------------------------------------------------
+    // _quote Override Tests
+    // ---------------------------------------------------
+
+    /// @dev Helper to build a SendParam suitable for quoting (minAmountLD = 0 to avoid slippage checks)
+    function _buildQuoteSendParam(uint256 sendAmount) internal view returns (SendParam memory) {
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(100_000, 0);
+        return
+            SendParam({
+                dstEid: DST_EID,
+                to: bytes32(uint256(uint160(bob))),
+                amountLD: sendAmount,
+                minAmountLD: 0, // Use 0 for quote to avoid slippage check
+                extraOptions: options,
+                composeMsg: "",
+                oftCmd: ""
+            });
+    }
+
+    /// @dev When user's gas token is the endpoint's native token, quoteSend returns fee without conversion
+    function test_QuoteSend_ReturnsNativeFee_WhenUserGasTokenIsEndpointNative() external {
+        uint256 sendAmount = 100e6;
+        uint256 expectedFee = 10e6; // mockNativeFee default
+
+        _setUserGasToken(alice, StdTokens.PATH_USD_ADDRESS);
+        _setupPeer();
+
+        SendParam memory sendParam = _buildQuoteSendParam(sendAmount);
+        vm.prank(alice);
+        MessagingFee memory fee = oft.quoteSend(sendParam, false);
+
+        assertEq(fee.nativeFee, expectedFee, "Fee should be in endpoint native token terms (no conversion)");
+        assertEq(fee.lzTokenFee, 0, "lzTokenFee should be 0");
+    }
+
+    /// @dev quoteSend with zero nativeFee returns zero (no conversion needed)
+    function test_QuoteSend_ReturnsZero_WhenNativeFeeIsZero() external {
+        uint256 sendAmount = 100e6;
+
+        lzEndpoint.setMockNativeFee(0);
+        // Use a different gas token - PATH_USD works fine for zero fee test
+        _setUserGasToken(alice, StdTokens.PATH_USD_ADDRESS);
+        _setupPeer();
+
+        SendParam memory sendParam = _buildQuoteSendParam(sendAmount);
+        vm.prank(alice);
+        MessagingFee memory fee = oft.quoteSend(sendParam, false);
+
+        assertEq(fee.nativeFee, 0, "Fee should be 0 when no native fee required");
     }
 }
