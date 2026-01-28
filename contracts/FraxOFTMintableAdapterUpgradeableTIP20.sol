@@ -6,7 +6,8 @@ import { OAppSenderUpgradeable } from "@fraxfinance/layerzero-v2-upgradeable/oap
 import { SupplyTrackingModule } from "contracts/modules/SupplyTrackingModule.sol";
 import { ITIP20 } from "@tempo/interfaces/ITIP20.sol";
 import { StdPrecompiles } from "tempo-std/StdPrecompiles.sol";
-import { MessagingParams, MessagingFee, MessagingReceipt } from "@layerzerolabs/lz-evm-protocol-v2/contracts/interfaces/ILayerZeroEndpointV2.sol";
+import { MessagingFee, MessagingReceipt } from "@layerzerolabs/lz-evm-protocol-v2/contracts/interfaces/ILayerZeroEndpointV2.sol";
+import { IOFT, SendParam, OFTReceipt } from "@fraxfinance/layerzero-v2-upgradeable/oapp/contracts/oft/interfaces/IOFT.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
@@ -16,10 +17,16 @@ interface IEndpointV2Alt {
 }
 
 contract FraxOFTMintableAdapterUpgradeableTIP20 is OFTAdapterUpgradeable, SupplyTrackingModule {
+    error NativeTokenUnavailable();
+    error OFTAltCore__msg_value_not_zero(uint256 _msg_value);
+
+    address public immutable nativeToken;
+
     /// @notice Emitted when ERC20 tokens are recovered
     event RecoveredERC20(address indexed token, uint256 amount);
 
     constructor(address _token, address _lzEndpoint) OFTAdapterUpgradeable(_token, _lzEndpoint) {
+        nativeToken = IEndpointV2Alt(_lzEndpoint).nativeToken();
         _disableInitializers();
     }
 
@@ -47,6 +54,32 @@ contract FraxOFTMintableAdapterUpgradeableTIP20 is OFTAdapterUpgradeable, Supply
     /// @dev added in v1.1.0
     function setInitialTotalSupply(uint32 _eid, uint256 _amount) external onlyOwner {
         _setInitialTotalSupply(_eid, _amount);
+    }
+
+    /// @inheritdoc IOFT
+    /// @dev Overrides send to prevent msg.value being sent (EndpointV2Alt uses ERC20 for gas)
+    function send(
+        SendParam calldata _sendParam,
+        MessagingFee calldata _fee,
+        address _refundAddress
+    ) external payable virtual override returns (MessagingReceipt memory msgReceipt, OFTReceipt memory oftReceipt) {
+        if (msg.value > 0) revert OFTAltCore__msg_value_not_zero(msg.value);
+
+        // Debit tokens from sender
+        (uint256 amountSentLD, uint256 amountReceivedLD) = _debit(
+            _sendParam.amountLD,
+            _sendParam.minAmountLD,
+            _sendParam.dstEid
+        );
+
+        // Build message and options
+        (bytes memory message, bytes memory options) = _buildMsgAndOptions(_sendParam, amountReceivedLD);
+
+        // Send via LayerZero
+        msgReceipt = _lzSend(_sendParam.dstEid, message, options, _fee, _refundAddress);
+        oftReceipt = OFTReceipt(amountSentLD, amountReceivedLD);
+
+        emit OFTSent(msgReceipt.guid, _sendParam.dstEid, msg.sender, amountSentLD, amountReceivedLD);
     }
 
     /// @dev overrides OFTAdapterUpgradeable.sol to burn the tokens from the sender/track supply
@@ -79,11 +112,6 @@ contract FraxOFTMintableAdapterUpgradeableTIP20 is OFTAdapterUpgradeable, Supply
         return _amountLD;
     }
 
-    /// @dev Returns the native ERC20 token used by the endpoint for gas payment
-    function _endpointNativeToken() internal view returns (address) {
-        return IEndpointV2Alt(address(endpoint)).nativeToken();
-    }
-
     /// @inheritdoc OAppSenderUpgradeable
     /// @dev Overrides _quote to return the fee in the user's TIP20 token instead of the endpoint's native token.
     ///      This allows users to get an accurate quote for their gas token.
@@ -97,12 +125,11 @@ contract FraxOFTMintableAdapterUpgradeableTIP20 is OFTAdapterUpgradeable, Supply
         fee = super._quote(_dstEid, _message, _options, _payInLzToken);
 
         // Convert nativeFee from endpoint native token to user's token if different
-        address endpointNative = _endpointNativeToken();
         address userToken = StdPrecompiles.TIP_FEE_MANAGER.userTokens(msg.sender);
-        if (userToken != endpointNative && fee.nativeFee > 0) {
+        if (userToken != nativeToken && fee.nativeFee > 0) {
             fee.nativeFee = StdPrecompiles.STABLECOIN_DEX.quoteSwapExactAmountOut({
                 tokenIn: userToken,
-                tokenOut: endpointNative,
+                tokenOut: nativeToken,
                 amountOut: uint128(fee.nativeFee)
             });
         }
@@ -112,14 +139,14 @@ contract FraxOFTMintableAdapterUpgradeableTIP20 is OFTAdapterUpgradeable, Supply
     /// @dev Handles gas payment for EndpointV2Alt which uses an ERC20 token as native.
     ///      Swaps user's TIP20 gas token to the endpoint's native token if needed, then transfers to endpoint.
     function _payNative(uint256 _nativeFee) internal virtual override returns (uint256 nativeFee) {
-        address endpointNative = _endpointNativeToken();
+        if (nativeToken == address(0)) revert NativeTokenUnavailable();
         address userToken = StdPrecompiles.TIP_FEE_MANAGER.userTokens(msg.sender);
 
-        if (userToken != endpointNative) {
+        if (userToken != nativeToken) {
             // Quote swap amount needed to receive exactly _nativeFee of endpoint native token
             uint128 _userTokenAmount = StdPrecompiles.STABLECOIN_DEX.quoteSwapExactAmountOut({
                 tokenIn: userToken,
-                tokenOut: endpointNative,
+                tokenOut: nativeToken,
                 amountOut: uint128(_nativeFee)
             });
             // Pull user's gas token and swap to endpoint native token
@@ -127,15 +154,15 @@ contract FraxOFTMintableAdapterUpgradeableTIP20 is OFTAdapterUpgradeable, Supply
             ITIP20(userToken).approve(address(StdPrecompiles.STABLECOIN_DEX), _userTokenAmount);
             StdPrecompiles.STABLECOIN_DEX.swapExactAmountOut({
                 tokenIn: userToken,
-                tokenOut: endpointNative,
+                tokenOut: nativeToken,
                 amountOut: uint128(_nativeFee),
                 maxAmountIn: _userTokenAmount
             });
             // Transfer endpoint native token to endpoint (EndpointV2Alt._suppliedNative() checks its balance)
-            ITIP20(endpointNative).transfer(address(endpoint), _nativeFee);
+            ITIP20(nativeToken).transfer(address(endpoint), _nativeFee);
         } else {
             // Pull endpoint native token directly from user to endpoint
-            ITIP20(endpointNative).transferFrom(msg.sender, address(endpoint), _nativeFee);
+            ITIP20(nativeToken).transferFrom(msg.sender, address(endpoint), _nativeFee);
         }
 
         return 0;

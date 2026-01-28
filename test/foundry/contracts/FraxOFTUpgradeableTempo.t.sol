@@ -8,8 +8,8 @@ import { StdPrecompiles } from "tempo-std/StdPrecompiles.sol";
 import { StdTokens } from "tempo-std/StdTokens.sol";
 import { TransparentUpgradeableProxy } from "@fraxfinance/layerzero-v2-upgradeable/messagelib/contracts/upgradeable/proxy/TransparentUpgradeableProxy.sol";
 import { OptionsBuilder } from "@fraxfinance/layerzero-v2-upgradeable/oapp/contracts/oapp/libs/OptionsBuilder.sol";
-import { MessagingFee } from "@layerzerolabs/lz-evm-protocol-v2/contracts/interfaces/ILayerZeroEndpointV2.sol";
-import { SendParam } from "@fraxfinance/layerzero-v2-upgradeable/oapp/contracts/oft/interfaces/IOFT.sol";
+import { MessagingFee, MessagingReceipt } from "@layerzerolabs/lz-evm-protocol-v2/contracts/interfaces/ILayerZeroEndpointV2.sol";
+import { SendParam, OFTReceipt } from "@fraxfinance/layerzero-v2-upgradeable/oapp/contracts/oft/interfaces/IOFT.sol";
 import { OFTMsgCodec } from "@fraxfinance/layerzero-v2-upgradeable/oapp/contracts/oft/libs/OFTMsgCodec.sol";
 import { Origin } from "@fraxfinance/layerzero-v2-upgradeable/oapp/contracts/oapp/interfaces/IOAppReceiver.sol";
 import { TempoTestHelpers } from "test/foundry/helpers/TempoTestHelpers.sol";
@@ -255,5 +255,71 @@ contract FraxOFTUpgradeableTempoTest is TempoTestHelpers, LZTestHelperOz4 {
         MessagingFee memory fee = oft.quoteSend(sendParam, false);
 
         assertEq(fee.nativeFee, 0, "Fee should be 0 when no native fee required");
+    }
+
+    // ---------------------------------------------------
+    // send() Override Tests
+    // ---------------------------------------------------
+
+    /// @dev send() reverts when msg.value > 0 (EndpointV2Alt uses ERC20 for gas, not native ETH)
+    function test_Send_RevertsWhenMsgValueNonZero() external {
+        uint256 sendAmount = 1_000_000_000_000; // avoid dust
+        uint256 nativeFee = 10e6;
+
+        _setUserGasToken(alice, StdTokens.PATH_USD_ADDRESS);
+        _setupPeer();
+
+        deal(address(oft), alice, sendAmount);
+        StdTokens.PATH_USD.mint(alice, nativeFee);
+
+        vm.startPrank(alice);
+        oft.approve(address(oft), type(uint256).max);
+        StdTokens.PATH_USD.approve(address(oft), type(uint256).max);
+        vm.stopPrank();
+
+        SendParam memory sendParam = _buildSendParam(sendAmount);
+
+        // Attempt to send with msg.value > 0 should revert
+        vm.deal(alice, 1 ether);
+        vm.prank(alice);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                FraxOFTUpgradeableTempo.OFTAltCore__msg_value_not_zero.selector,
+                1 ether
+            )
+        );
+        oft.send{ value: 1 ether }(sendParam, MessagingFee({ nativeFee: nativeFee, lzTokenFee: 0 }), alice);
+    }
+
+    /// @dev send() succeeds when msg.value == 0 and returns valid receipts
+    function test_Send_SucceedsWhenMsgValueZero_ReturnsValidReceipts() external {
+        uint256 sendAmount = 1_000_000_000_000; // avoid dust
+        uint256 nativeFee = 10e6;
+
+        _setUserGasToken(alice, StdTokens.PATH_USD_ADDRESS);
+        _setupPeer();
+
+        deal(address(oft), alice, sendAmount);
+        StdTokens.PATH_USD.mint(alice, nativeFee);
+
+        vm.startPrank(alice);
+        oft.approve(address(oft), type(uint256).max);
+        StdTokens.PATH_USD.approve(address(oft), type(uint256).max);
+        vm.stopPrank();
+
+        SendParam memory sendParam = _buildSendParam(sendAmount);
+
+        // Should succeed with msg.value == 0 and return valid receipts
+        vm.prank(alice);
+        (MessagingReceipt memory msgReceipt, OFTReceipt memory oftReceipt) = oft.send{ value: 0 }(
+            sendParam,
+            MessagingFee({ nativeFee: nativeFee, lzTokenFee: 0 }),
+            alice
+        );
+
+        // Verify receipts are valid
+        assertGt(uint256(msgReceipt.guid), 0, "guid should be non-zero");
+        assertEq(oftReceipt.amountSentLD, sendAmount, "amountSentLD should match");
+        assertEq(oftReceipt.amountReceivedLD, sendAmount, "amountReceivedLD should match");
     }
 }

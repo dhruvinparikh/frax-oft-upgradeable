@@ -556,4 +556,68 @@ contract FraxOFTMintableAdapterUpgradeableTIP20Test is TempoTestHelpers {
         vm.expectRevert();
         adapter.initialize(alice);
     }
+
+    // ---------------------------------------------------
+    // send() Override Tests
+    // ---------------------------------------------------
+
+    /// @dev send() reverts when msg.value > 0 (EndpointV2Alt uses ERC20 for gas, not native ETH)
+    function test_Send_RevertsWhenMsgValueNonZero() external {
+        uint256 sendAmount = 100e6;
+        uint256 nativeFee = 10e6;
+
+        _setUserGasToken(alice, StdTokens.PATH_USD_ADDRESS);
+        frxUsdToken.mint(alice, sendAmount);
+        StdTokens.PATH_USD.mint(alice, nativeFee);
+        _setupPeer();
+
+        vm.startPrank(alice);
+        frxUsdToken.approve(address(adapter), type(uint256).max);
+        StdTokens.PATH_USD.approve(address(adapter), type(uint256).max);
+        vm.stopPrank();
+
+        SendParam memory sendParam = _buildSendParam(sendAmount);
+
+        // Attempt to send with msg.value > 0 should revert
+        vm.deal(alice, 1 ether);
+        vm.prank(alice);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                FraxOFTMintableAdapterUpgradeableTIP20.OFTAltCore__msg_value_not_zero.selector,
+                1 ether
+            )
+        );
+        adapter.send{ value: 1 ether }(sendParam, MessagingFee({ nativeFee: nativeFee, lzTokenFee: 0 }), alice);
+    }
+
+    /// @dev send() succeeds when msg.value == 0 (correct usage for EndpointV2Alt)
+    function test_Send_SucceedsWhenMsgValueZero() external {
+        uint256 sendAmount = 100e6;
+        uint256 nativeFee = 10e6;
+
+        _setUserGasToken(alice, StdTokens.PATH_USD_ADDRESS);
+        frxUsdToken.mint(alice, sendAmount);
+        StdTokens.PATH_USD.mint(alice, nativeFee);
+        _setupPeer();
+
+        vm.startPrank(alice);
+        frxUsdToken.approve(address(adapter), type(uint256).max);
+        StdTokens.PATH_USD.approve(address(adapter), type(uint256).max);
+        vm.stopPrank();
+
+        SendParam memory sendParam = _buildSendParam(sendAmount);
+
+        // Should succeed with msg.value == 0
+        vm.prank(alice);
+        (MessagingReceipt memory msgReceipt, OFTReceipt memory oftReceipt) = adapter.send{ value: 0 }(
+            sendParam,
+            MessagingFee({ nativeFee: nativeFee, lzTokenFee: 0 }),
+            alice
+        );
+
+        // Verify receipts are valid
+        assertGt(uint256(msgReceipt.guid), 0, "guid should be non-zero");
+        assertEq(oftReceipt.amountSentLD, sendAmount, "amountSentLD should match");
+        assertEq(oftReceipt.amountReceivedLD, sendAmount, "amountReceivedLD should match");
+    }
 }
