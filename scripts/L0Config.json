@@ -512,16 +512,16 @@
             "sendLib302": "0x1d186C560281B8F1AF831957ED5047fD3AB902F9"
         },
          {
-            "RPC": "https://rpc.testnet.tempo.xyz",
-            "chainid": 42429,
+            "RPC": "https://rpc.moderato.tempo.xyz",
+            "chainid": 42431,
             "delegate": "0x0000000000000000000000000000000000000000",
             "dvnHorizen": "0x0000000000000000000000000000000000000000",
-            "dvnL0": "0x489fd72653924e25de141e9b1d1c2591a1150602",
-            "eid": 40439,
-            "endpoint": "0x50C21fE63c28191ccDc167961992A63e14393565",
+            "dvnL0": "0x0ac2924460a5b285fd205dedb46738ad46971061",
+            "eid": 40444,
+            "endpoint": "0xFB34352bA2e2D9cB93837bb19D36db5d93BcFC41",
             "proxyAdmin": "0x0000000000000000000000000000000000000000",
-            "receiveLib302": "0x417cb9E12cfe7301c8b6ef8f63ffac55263e147C",
-            "sendLib302": "0xB8CFaA12Bf058492Ed6F9c746d1DaCf9356076Bc"
+            "receiveLib302": "0xfeBE4c839EFA9f506C092a32fD0BB546B76A1d38",
+            "sendLib302": "0x91ec94dd5E949BdB2ecE3b91B9602EC5F7F59FFD"
         }
     ]
 }

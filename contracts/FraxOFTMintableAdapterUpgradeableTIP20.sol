@@ -6,6 +6,8 @@ import { OAppSenderUpgradeable } from "@fraxfinance/layerzero-v2-upgradeable/oap
 import { SupplyTrackingModule } from "contracts/modules/SupplyTrackingModule.sol";
 import { ITIP20 } from "@tempo/interfaces/ITIP20.sol";
 import { StdPrecompiles } from "tempo-std/StdPrecompiles.sol";
+import { StdTokens } from "tempo-std/StdTokens.sol";
+import { ILZEndpointDollar } from "contracts/interfaces/vendor/layerzero/ILZEndpointDollar.sol";
 import { MessagingFee, MessagingReceipt } from "@layerzerolabs/lz-evm-protocol-v2/contracts/interfaces/ILayerZeroEndpointV2.sol";
 import { IOFT, SendParam, OFTReceipt } from "@fraxfinance/layerzero-v2-upgradeable/oapp/contracts/oft/interfaces/IOFT.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -19,14 +21,15 @@ interface IEndpointV2Alt {
 contract FraxOFTMintableAdapterUpgradeableTIP20 is OFTAdapterUpgradeable, SupplyTrackingModule {
     error NativeTokenUnavailable();
     error OFTAltCore__msg_value_not_zero(uint256 _msg_value);
+    error UnsupportedGasToken(address token);
 
-    address public immutable nativeToken;
+    ILZEndpointDollar public immutable nativeToken;
 
     /// @notice Emitted when ERC20 tokens are recovered
     event RecoveredERC20(address indexed token, uint256 amount);
 
     constructor(address _token, address _lzEndpoint) OFTAdapterUpgradeable(_token, _lzEndpoint) {
-        nativeToken = IEndpointV2Alt(_lzEndpoint).nativeToken();
+        nativeToken = ILZEndpointDollar(IEndpointV2Alt(_lzEndpoint).nativeToken());
         _disableInitializers();
     }
 
@@ -124,46 +127,69 @@ contract FraxOFTMintableAdapterUpgradeableTIP20 is OFTAdapterUpgradeable, Supply
         // Get the base quote in endpoint native token terms
         fee = super._quote(_dstEid, _message, _options, _payInLzToken);
 
-        // Convert nativeFee from endpoint native token to user's token if different
+        if (fee.nativeFee == 0) return fee;
+
         address userToken = StdPrecompiles.TIP_FEE_MANAGER.userTokens(msg.sender);
-        if (userToken != nativeToken && fee.nativeFee > 0) {
-            fee.nativeFee = StdPrecompiles.STABLECOIN_DEX.quoteSwapExactAmountOut({
-                tokenIn: userToken,
-                tokenOut: nativeToken,
-                amountOut: uint128(fee.nativeFee)
-            });
+
+        // If userToken is whitelisted in LZEndpointDollar, no swap needed
+        if (nativeToken.isWhitelistedToken(userToken)) {
+            return fee;
         }
+
+        // userToken is not whitelisted, check if PATH_USD is whitelisted
+        if (!nativeToken.isWhitelistedToken(StdTokens.PATH_USD_ADDRESS)) {
+            revert UnsupportedGasToken(userToken);
+        }
+
+        // Quote swap from userToken to PATH_USD
+        fee.nativeFee = StdPrecompiles.STABLECOIN_DEX.quoteSwapExactAmountOut({
+            tokenIn: userToken,
+            tokenOut: StdTokens.PATH_USD_ADDRESS,
+            amountOut: uint128(fee.nativeFee)
+        });
     }
 
     /// @inheritdoc OAppSenderUpgradeable
     /// @dev Handles gas payment for EndpointV2Alt which uses an ERC20 token as native.
-    ///      Swaps user's TIP20 gas token to the endpoint's native token if needed, then transfers to endpoint.
+    ///      If userToken is whitelisted in LZEndpointDollar, wraps directly.
+    ///      Otherwise swaps to PATH_USD (if whitelisted) and wraps.
     function _payNative(uint256 _nativeFee) internal virtual override returns (uint256 nativeFee) {
-        if (nativeToken == address(0)) revert NativeTokenUnavailable();
+        if (address(nativeToken) == address(0)) revert NativeTokenUnavailable();
+
         address userToken = StdPrecompiles.TIP_FEE_MANAGER.userTokens(msg.sender);
 
-        if (userToken != nativeToken) {
-            // Quote swap amount needed to receive exactly _nativeFee of endpoint native token
-            uint128 _userTokenAmount = StdPrecompiles.STABLECOIN_DEX.quoteSwapExactAmountOut({
-                tokenIn: userToken,
-                tokenOut: nativeToken,
-                amountOut: uint128(_nativeFee)
-            });
-            // Pull user's gas token and swap to endpoint native token
-            ITIP20(userToken).transferFrom(msg.sender, address(this), _userTokenAmount);
-            ITIP20(userToken).approve(address(StdPrecompiles.STABLECOIN_DEX), _userTokenAmount);
-            StdPrecompiles.STABLECOIN_DEX.swapExactAmountOut({
-                tokenIn: userToken,
-                tokenOut: nativeToken,
-                amountOut: uint128(_nativeFee),
-                maxAmountIn: _userTokenAmount
-            });
-            // Transfer endpoint native token to endpoint (EndpointV2Alt._suppliedNative() checks its balance)
-            ITIP20(nativeToken).transfer(address(endpoint), _nativeFee);
-        } else {
-            // Pull endpoint native token directly from user to endpoint
-            ITIP20(nativeToken).transferFrom(msg.sender, address(endpoint), _nativeFee);
+        // If userToken is whitelisted in LZEndpointDollar, wrap directly
+        if (nativeToken.isWhitelistedToken(userToken)) {
+            ITIP20(userToken).transferFrom(msg.sender, address(this), _nativeFee);
+            ITIP20(userToken).approve(address(nativeToken), _nativeFee);
+            nativeToken.wrap(userToken, address(endpoint), _nativeFee);
+            return 0;
         }
+
+        // userToken is not whitelisted, check if PATH_USD is whitelisted
+        if (!nativeToken.isWhitelistedToken(StdTokens.PATH_USD_ADDRESS)) {
+            revert UnsupportedGasToken(userToken);
+        }
+
+        // Swap userToken to PATH_USD, then wrap
+        uint128 userTokenAmount = StdPrecompiles.STABLECOIN_DEX.quoteSwapExactAmountOut({
+            tokenIn: userToken,
+            tokenOut: StdTokens.PATH_USD_ADDRESS,
+            amountOut: uint128(_nativeFee)
+        });
+
+        ITIP20(userToken).transferFrom(msg.sender, address(this), userTokenAmount);
+        ITIP20(userToken).approve(address(StdPrecompiles.STABLECOIN_DEX), userTokenAmount);
+        StdPrecompiles.STABLECOIN_DEX.swapExactAmountOut({
+            tokenIn: userToken,
+            tokenOut: StdTokens.PATH_USD_ADDRESS,
+            amountOut: uint128(_nativeFee),
+            maxAmountIn: userTokenAmount
+        });
+
+        // Wrap PATH_USD into LZEndpointDollar and send to endpoint
+        ITIP20(StdTokens.PATH_USD_ADDRESS).approve(address(nativeToken), _nativeFee);
+        nativeToken.wrap(StdTokens.PATH_USD_ADDRESS, address(endpoint), _nativeFee);
 
         return 0;
     }

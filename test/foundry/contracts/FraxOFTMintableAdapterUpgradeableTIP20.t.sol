@@ -7,26 +7,87 @@ import { ITIP20RolesAuth } from "tempo-std/interfaces/ITIP20RolesAuth.sol";
 import { IStablecoinDEX } from "tempo-std/interfaces/IStablecoinDEX.sol";
 import { StdPrecompiles } from "tempo-std/StdPrecompiles.sol";
 import { StdTokens } from "tempo-std/StdTokens.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { TransparentUpgradeableProxy } from "@fraxfinance/layerzero-v2-upgradeable/messagelib/contracts/upgradeable/proxy/TransparentUpgradeableProxy.sol";
 import { OptionsBuilder } from "@fraxfinance/layerzero-v2-upgradeable/oapp/contracts/oapp/libs/OptionsBuilder.sol";
 import { MessagingFee, MessagingReceipt } from "@layerzerolabs/lz-evm-protocol-v2/contracts/interfaces/ILayerZeroEndpointV2.sol";
 import { SendParam, OFTReceipt } from "@fraxfinance/layerzero-v2-upgradeable/oapp/contracts/oft/interfaces/IOFT.sol";
 import { TempoTestHelpers } from "test/foundry/helpers/TempoTestHelpers.sol";
 
+/// @notice Mock LZEndpointDollar for testing
+contract MockLZEndpointDollarForAdapter {
+    string public name = "LZ Endpoint Dollar";
+    string public symbol = "LZUSD";
+    uint8 public constant decimals = 6;
+
+    mapping(address => uint256) public balanceOf;
+    mapping(address => mapping(address => uint256)) public allowance;
+    mapping(address => bool) private _whitelistedTokens;
+    uint256 public totalSupply;
+
+    address public owner;
+
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    event TokenWrapped(address indexed token, address indexed from, address indexed to, uint256 amount);
+
+    constructor() {
+        owner = msg.sender;
+    }
+
+    function whitelistToken(address token) external {
+        _whitelistedTokens[token] = true;
+    }
+
+    function isWhitelistedToken(address token) external view returns (bool) {
+        return _whitelistedTokens[token];
+    }
+
+    function wrap(address token, address to, uint256 amount) external {
+        require(_whitelistedTokens[token], "Not whitelisted");
+        IERC20(token).transferFrom(msg.sender, address(this), amount);
+        balanceOf[to] += amount;
+        totalSupply += amount;
+        emit Transfer(address(0), to, amount);
+        emit TokenWrapped(token, msg.sender, to, amount);
+    }
+
+    function unwrap(address token, address to, uint256 amount) external {
+        require(_whitelistedTokens[token], "Not whitelisted");
+        require(balanceOf[msg.sender] >= amount, "Insufficient balance");
+        balanceOf[msg.sender] -= amount;
+        totalSupply -= amount;
+        IERC20(token).transfer(to, amount);
+    }
+
+    function transfer(address to, uint256 amount) external returns (bool) {
+        balanceOf[msg.sender] -= amount;
+        balanceOf[to] += amount;
+        emit Transfer(msg.sender, to, amount);
+        return true;
+    }
+
+    function approve(address spender, uint256 amount) external returns (bool) {
+        allowance[msg.sender][spender] = amount;
+        return true;
+    }
+}
+
 /// @notice Mock LZ endpoint simulating EndpointV2Alt behavior (ERC20 as native)
-/// @dev Mimics how Tempo's endpoint uses PATH_USD ERC20 balance instead of msg.value
-/// See: EndpointV2Alt._suppliedNative() returns IERC20(nativeErc20).balanceOf(address(this))
+/// @dev Mimics how Tempo's endpoint uses LZEndpointDollar ERC20 balance instead of msg.value
 contract MockLzEndpoint {
     uint32 public eid;
     uint64 public nonce;
     uint256 public lastNativeFee;
     mapping(address => address) public delegates;
 
-    /// @dev PATH_USD precompile address on Tempo (nativeErc20 in EndpointV2Alt)
-    address public constant nativeErc20 = 0x20C0000000000000000000000000000000000000;
+    /// @dev Mock LZEndpointDollar that wraps PATH_USD
+    MockLZEndpointDollarForAdapter public nativeErc20;
 
     constructor(uint32 _eid) {
         eid = _eid;
+        nativeErc20 = new MockLZEndpointDollarForAdapter();
+        // Whitelist PATH_USD by default
+        nativeErc20.whitelistToken(0x20C0000000000000000000000000000000000000);
     }
 
     /// @dev Mock setDelegate called during OApp initialization
@@ -35,15 +96,10 @@ contract MockLzEndpoint {
     }
 
     /// @dev Simulates EndpointV2Alt.send() behavior
-    /// @notice EndpointV2Alt checks balanceOf(address(this)) for PATH_USD as the supplied native fee.
-    ///         The OApp must transfer PATH_USD to the endpoint before calling send().
     function send(MessagingParams calldata, address) external payable returns (MessagingReceipt memory) {
-        // EndpointV2Alt reverts if msg.value > 0
         require(msg.value == 0, "LZ_OnlyAltToken");
-
         nonce++;
-        // EndpointV2Alt._suppliedNative() returns the endpoint's PATH_USD balance
-        lastNativeFee = ITIP20(nativeErc20).balanceOf(address(this));
+        lastNativeFee = nativeErc20.balanceOf(address(this));
 
         return
             MessagingReceipt({
@@ -53,7 +109,6 @@ contract MockLzEndpoint {
             });
     }
 
-    /// @dev Mock quote function returning a fixed nativeFee for testing
     uint256 public mockNativeFee = 10e6;
 
     function setMockNativeFee(uint256 _fee) external {
@@ -64,12 +119,10 @@ contract MockLzEndpoint {
         return MessagingFee({ nativeFee: mockNativeFee, lzTokenFee: 0 });
     }
 
-    /// @dev Returns the native ERC20 token (PATH_USD on Tempo)
-    function nativeToken() external pure returns (address) {
-        return nativeErc20;
+    function nativeToken() external view returns (address) {
+        return address(nativeErc20);
     }
 
-    /// @dev Allow receiving native value (not used with EndpointV2Alt)
     receive() external payable {}
 }
 
@@ -311,8 +364,8 @@ contract FraxOFTMintableAdapterUpgradeableTIP20Test is TempoTestHelpers {
             aliceGasTokenBefore - sendAmount - nativeFee,
             "Gas token (frxUSD) balance mismatch"
         );
-        // Endpoint receives PATH_USD from swap
-        assertEq(StdTokens.PATH_USD.balanceOf(address(lzEndpoint)), nativeFee, "Endpoint should receive PATH_USD");
+        // Endpoint receives LZEndpointDollar (wrapped PATH_USD)
+        assertEq(lzEndpoint.nativeErc20().balanceOf(address(lzEndpoint)), nativeFee, "Endpoint should receive LZEndpointDollar");
     }
 
     /// @dev When user's gas token is PATH_USD, no swap occurs - PATH_USD pulled directly from user
@@ -344,9 +397,9 @@ contract FraxOFTMintableAdapterUpgradeableTIP20Test is TempoTestHelpers {
         vm.expectEmit(true, true, false, true, address(frxUsdToken));
         emit ITIP20.Transfer(address(adapter), address(0), sendAmount);
 
-        // 3. _payNative: Transfer PATH_USD directly from alice to endpoint (no swap)
+        // 3. _payNative: Transfer PATH_USD from alice to adapter for wrapping
         vm.expectEmit(true, true, false, true, StdTokens.PATH_USD_ADDRESS);
-        emit ITIP20.Transfer(alice, address(lzEndpoint), nativeFee);
+        emit ITIP20.Transfer(alice, address(adapter), nativeFee);
 
         _executeSend(alice, sendAmount, nativeFee);
 
@@ -360,10 +413,10 @@ contract FraxOFTMintableAdapterUpgradeableTIP20Test is TempoTestHelpers {
             aliceFrxUsdBefore - sendAmount,
             "frxUSD balance mismatch - only sendAmount should be deducted"
         );
-        // PATH_USD: nativeFee deducted (pulled by _payNative and sent to endpoint)
+        // PATH_USD: nativeFee deducted (pulled by _payNative and wrapped)
         assertEq(alicePathUsdAfter, alicePathUsdBefore - nativeFee, "PATH_USD balance should be reduced by nativeFee");
-        // Endpoint receives PATH_USD
-        assertEq(StdTokens.PATH_USD.balanceOf(address(lzEndpoint)), nativeFee, "Endpoint should receive PATH_USD");
+        // Endpoint receives LZEndpointDollar (wrapped PATH_USD)
+        assertEq(lzEndpoint.nativeErc20().balanceOf(address(lzEndpoint)), nativeFee, "Endpoint should receive LZEndpointDollar");
     }
 
     /// @dev When user's gas token is any TIP20 (not PATH_USD), swap to PATH_USD should occur
@@ -419,7 +472,7 @@ contract FraxOFTMintableAdapterUpgradeableTIP20Test is TempoTestHelpers {
         uint256 aliceGasTokenAfter = otherToken.balanceOf(alice);
         uint256 adapterGasTokenAfter = otherToken.balanceOf(address(adapter));
         uint256 adapterPathUsdAfter = StdTokens.PATH_USD.balanceOf(address(adapter));
-        uint256 endpointPathUsdAfter = StdTokens.PATH_USD.balanceOf(address(lzEndpoint));
+        uint256 endpointLzUsdAfter = lzEndpoint.nativeErc20().balanceOf(address(lzEndpoint));
 
         // --- BALANCE ASSERTIONS ---
         // frxUSD: only sendAmount deducted (for _debit)
@@ -430,10 +483,10 @@ contract FraxOFTMintableAdapterUpgradeableTIP20Test is TempoTestHelpers {
         // --- STATE ASSERTIONS ---
         // Adapter should not retain gas tokens after swap (all swapped to PATH_USD)
         assertEq(adapterGasTokenAfter, adapterGasTokenBefore, "Adapter should not retain gas token");
-        // Adapter should not retain PATH_USD - transferred to endpoint
+        // Adapter should not retain PATH_USD - wrapped and sent to endpoint
         assertEq(adapterPathUsdAfter, adapterPathUsdBefore, "Adapter should not retain PATH_USD");
-        // Verify endpoint received the PATH_USD (EndpointV2Alt uses ERC20 balance as native)
-        assertEq(endpointPathUsdAfter, nativeFee, "Endpoint should receive PATH_USD");
+        // Verify endpoint received the LZEndpointDollar (wrapped PATH_USD)
+        assertEq(endpointLzUsdAfter, nativeFee, "Endpoint should receive LZEndpointDollar");
         assertEq(lzEndpoint.lastNativeFee(), nativeFee, "Endpoint recorded correct nativeFee");
 
         // --- ALLOWANCE ASSERTIONS ---

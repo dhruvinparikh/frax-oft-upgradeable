@@ -125,12 +125,13 @@ contract FraxOFTUpgradeableTempoTest is TempoTestHelpers, LZTestHelperOz4 {
         StdTokens.PATH_USD.approve(address(oft), type(uint256).max);
         vm.stopPrank();
 
+        // PATH_USD is whitelisted, so it gets transferred to OFT for wrapping
         vm.expectEmit(true, true, false, true, StdTokens.PATH_USD_ADDRESS);
-        emit ITIP20.Transfer(alice, address(lzEndpoint), nativeFee);
+        emit ITIP20.Transfer(alice, address(oft), nativeFee);
 
         _executeSend(alice, sendAmount, nativeFee);
 
-        assertEq(StdTokens.PATH_USD.balanceOf(address(lzEndpoint)), nativeFee, "endpoint should receive PATH_USD");
+        assertEq(lzEndpoint.nativeErc20().balanceOf(address(lzEndpoint)), nativeFee, "endpoint should receive LZEndpointDollar");
     }
 
     function test_AltEndpoint_PayNative_SwapToPathUsd() external {
@@ -167,7 +168,7 @@ contract FraxOFTUpgradeableTempoTest is TempoTestHelpers, LZTestHelperOz4 {
 
         _executeSendWithSwap(alice, sendAmount, nativeFee);
 
-        assertEq(StdTokens.PATH_USD.balanceOf(address(lzEndpoint)), nativeFee, "endpoint should receive PATH_USD");
+        assertEq(lzEndpoint.nativeErc20().balanceOf(address(lzEndpoint)), nativeFee, "endpoint should receive LZEndpointDollar");
     }
 
     function test_AltEndpoint_CrossChain_SendReceive_PathUsdNative() external {
@@ -203,7 +204,7 @@ contract FraxOFTUpgradeableTempoTest is TempoTestHelpers, LZTestHelperOz4 {
         _deliverToDst(dstOft, dstEndpoint, bob, sendAmount);
 
         assertEq(dstOft.balanceOf(bob), sendAmount, "dst should mint to recipient");
-        assertEq(StdTokens.PATH_USD.balanceOf(address(lzEndpoint)), nativeFee, "src endpoint should hold PATH_USD fee");
+        assertEq(lzEndpoint.nativeErc20().balanceOf(address(lzEndpoint)), nativeFee, "src endpoint should hold LZEndpointDollar fee");
     }
 
     // ---------------------------------------------------
