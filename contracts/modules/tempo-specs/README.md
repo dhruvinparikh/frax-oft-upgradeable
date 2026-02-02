@@ -20,12 +20,12 @@ This module contains contracts and utilities for integrating with Tempo Network'
 │  │  │ • modifyBlacklist() │    │ • placeOrder()      │    │ • setUserToken()        │   │   │
 │  │  │ • isAuthorized()    │    │ • fillOrders()      │    │                         │   │   │
 │  │  └─────────────────────┘    └─────────────────────┘    └─────────────────────────┘   │   │
-│  │            ▲                          ▲                           │                  │   │
-│  └────────────│──────────────────────────│───────────────────────────│──────────────────┘   │
-│               │                          │                           │                      │
-│               │ (2) Check policy         │ (5b) Swap TIP20→PATH_USD  │ (4) Get user's      │
-│               │     on transfer          │      (if not whitelisted) │     gas token       │
-│               │                          │                           ▼                      │
+│  │            ▲                          ▲                            │                 │   │
+│  └────────────│──────────────────────────│────────────────────────────│─────────────────┘   │
+│               │                          │                            │                     │
+│               │ (2) Check policy         │ (5b) Swap TIP20→PATH_USD   │ (4) Get user's      │
+│               │     on transfer          │      (if not whitelisted)  │     gas token       │
+│               │                          │                            ▼                     │
 │  ┌────────────┴──────────────┐    ┌──────┴───────────────────────────────────────────────┐  │
 │  │                           │    │                                                      │  │
 │  │   FrxUSDPolicyAdminTempo  │    │  FraxOFTMintableAdapterUpgradeableTIP20              │  │
@@ -69,12 +69,12 @@ This module contains contracts and utilities for integrating with Tempo Network'
 │  │                                                                                       │  │
 │  │                              frxUSD TIP20 Token (Precompile)                          │  │
 │  │                                                                                       │  │
-│  │  • transfer(to, amount)  ──────► Checks TIP403_REGISTRY.isAuthorized(policyId, user) │  │
-│  │  • transferFrom(from, to, amount)           │                                        │  │
-│  │  • mint(to, amount)                         │ If on BLACKLIST → revert PolicyForbids │  │
-│  │  • burn(amount)                             │ If not on BLACKLIST → allow transfer   │  │
-│  │  • changeTransferPolicyId(policyId)         │                                        │  │
-│  │                                             ▼                                        │  │
+│  │  • transfer(to, amount)  ──────► Checks TIP403_REGISTRY.isAuthorized(policyId, user)  │  │
+│  │  • transferFrom(from, to, amount)           │                                         │  │
+│  │  • mint(to, amount)                         │ If on BLACKLIST → revert PolicyForbids  │  │
+│  │  • burn(amount)                             │ If not on BLACKLIST → allow transfer    │  │
+│  │  • changeTransferPolicyId(policyId)         │                                         │  │
+│  │                                             ▼                                         │  │
 │  └───────────────────────────────────────────────────────────────────────────────────────┘  │
 │                                                                                             │
 └─────────────────────────────────────────────────────────────────────────────────────────────┘
