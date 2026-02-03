@@ -6,7 +6,7 @@ import "../../FraxtalHub/3_SetupDestinationFraxOFTFraxtalHub/SetupDestinationFra
 // forge script scripts/SepoliaHub/3_SetupDestinationFraxOFTSepoliaHub/SetupDestinationFraxOFTSepoliaHubTempoTestnet.s.sol --rpc-url https://ethereum-sepolia-rpc.publicnode.com --broadcast
 contract SetupDestinationFraxOFTSepoliaTempoTestnet is SetupDestinationFraxOFTFraxtalHub {
     constructor() {
-        frxUsdOft = 0x8Ee7E00790c18f28B65BC4771F2a8273D88f2A54; // frxUSD lockbox on tempo testnet
+        frxUsdOft = 0x16FBfCF4970D4550791faF75AE9BaecE75C85A27; // frxUSD lockbox on tempo testnet
 
         proxyOfts.push(frxUsdOft);
     }
@@ -19,7 +19,7 @@ contract SetupDestinationFraxOFTSepoliaTempoTestnet is SetupDestinationFraxOFTFr
 
         for (uint256 i; i < testnetConfigs.length; i++) {
             // Set up destinations for Tempo testnet lockboxes only
-            if (testnetConfigs[i].chainid == 42429 || testnetConfigs[i].chainid == broadcastConfig.chainid) {
+            if (testnetConfigs[i].chainid == 42431 || testnetConfigs[i].chainid == broadcastConfig.chainid) {
                 tempConfigs.push(testnetConfigs[i]);
             }
         }

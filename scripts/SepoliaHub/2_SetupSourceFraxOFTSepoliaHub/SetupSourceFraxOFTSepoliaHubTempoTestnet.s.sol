@@ -4,10 +4,10 @@ pragma solidity ^0.8.19;
 import "../../FraxtalHub/2_SetupSourceFraxOFTFraxtalHub/SetupSourceFraxOFTFraxtalHub.sol";
 import { OFTAdapterUpgradeable } from "@fraxfinance/layerzero-v2-upgradeable/oapp/contracts/oft/OFTAdapterUpgradeable.sol";
 
-// forge script scripts/SepoliaHub/2_SetupSourceFraxOFTSepoliaHub/SetupSourceFraxOFTSepoliaHubTempoTestnet.s.sol --rpc-url https://rpc.testnet.tempo.xyz --broadcast
+// forge script scripts/SepoliaHub/2_SetupSourceFraxOFTSepoliaHub/SetupSourceFraxOFTSepoliaHubTempoTestnet.s.sol --rpc-url https://rpc.moderato.tempo.xyz --broadcast
 contract SetupSourceFraxOFTSepoliaHubTempoTestnet is SetupSourceFraxOFTFraxtalHub {
     constructor() {
-        frxUsdOft = 0x8Ee7E00790c18f28B65BC4771F2a8273D88f2A54; // frxUSD lockbox on tempo testnet
+        frxUsdOft = 0x16FBfCF4970D4550791faF75AE9BaecE75C85A27; // frxUSD lockbox on tempo testnet
 
         proxyOfts.push(frxUsdOft);
     }
@@ -64,16 +64,16 @@ contract SetupSourceFraxOFTSepoliaHubTempoTestnet is SetupSourceFraxOFTFraxtalHu
     }
 
     function setPriviledgedRoles() public override {
-        proxyAdmin = 0x223a681fc5c5522c85C96157c0efA18cd6c5405c;
+        proxyAdmin = 0x394E4F810Bde9Eb786018Def607951021c470051;
 
         /// @dev transfer ownership of OFT
         for (uint256 o = 0; o < proxyOfts.length; o++) {
             address proxyOft = proxyOfts[o];
-            FraxOFTUpgradeable(proxyOft).setDelegate(0x0990be6dB8c785FBbF9deD8bAEc612A10CaE814b);
-            Ownable(proxyOft).transferOwnership(0x0990be6dB8c785FBbF9deD8bAEc612A10CaE814b);
+            FraxOFTUpgradeable(proxyOft).setDelegate(0x1d434906Aa520E592fAB2b82406BEfF859be8e82);
+            Ownable(proxyOft).transferOwnership(0x1d434906Aa520E592fAB2b82406BEfF859be8e82);
         }
 
         /// @dev transfer ownership of ProxyAdmin
-        Ownable(proxyAdmin).transferOwnership(0x0990be6dB8c785FBbF9deD8bAEc612A10CaE814b);
+        Ownable(proxyAdmin).transferOwnership(0x1d434906Aa520E592fAB2b82406BEfF859be8e82);
     }
 }

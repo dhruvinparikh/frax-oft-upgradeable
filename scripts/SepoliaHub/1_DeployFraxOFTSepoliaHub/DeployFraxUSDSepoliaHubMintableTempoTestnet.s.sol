@@ -11,18 +11,8 @@ import { ITIP20Factory } from "tempo-std/interfaces/ITIP20Factory.sol";
 import { FraxOFTMintableAdapterUpgradeableTIP20 } from "contracts/FraxOFTMintableAdapterUpgradeableTIP20.sol";
 import { FrxUSDPolicyAdminTempo } from "contracts/frxUsd/FrxUSDPolicyAdminTempo.sol";
 
-interface ITIP20FactoryTemp {
-    function createToken(
-        string memory name,
-        string memory symbol,
-        string memory currency,
-        ITIP20 quoteToken,
-        address admin
-    ) external returns (address);
-}
-
 // Deploy everything with a hub model vs. a spoke model where the only peer is Sepolia
-// forge script scripts/SepoliaHub/1_DeployFraxOFTSepoliaHub/DeployFraxUSDSepoliaHubMintableTempoTestnet.s.sol --rpc-url https://rpc.testnet.tempo.xyz --broadcast
+// forge script scripts/SepoliaHub/1_DeployFraxOFTSepoliaHub/DeployFraxUSDSepoliaHubMintableTempoTestnet.s.sol --rpc-url https://rpc.moderato.tempo.xyz --broadcast
 contract DeployFraxUSDSepoliaHubMintableTempoTestnet is DeployFraxOFTProtocol {
     L0Config[] public tempConfigs;
     address[] public proxyOftWallets;
@@ -96,15 +86,15 @@ contract DeployFraxUSDSepoliaHubMintableTempoTestnet is DeployFraxOFTProtocol {
 
     function deployFrxUsdOFTUpgradeableAndProxy() public override returns (address implementation, address proxy) {
         // Create TIP20 token via factory
-        address tokenAddr = 0x20C00000000000000000000000000000001116e8;
-        // ITIP20FactoryTemp(StdPrecompiles.TIP20_FACTORY_ADDRESS).createToken({
-        //     name: "Frax USD",
-        //     symbol: "frxUSD",
-        //     currency: "USD",
-        //     quoteToken: StdTokens.PATH_USD,
-        //     admin: vm.addr(oftDeployerPK),
-        //     salt: bytes32(0)
-        // });
+        // address tokenAddr = 0x20C00000000000000000000000000000001116e8;
+        address tokenAddr = StdPrecompiles.TIP20_FACTORY.createToken({
+            name: "Frax USD",
+            symbol: "frxUSD",
+            currency: "USD",
+            quoteToken: StdTokens.PATH_USD,
+            admin: vm.addr(oftDeployerPK),
+            salt: bytes32(0)
+        });
         ITIP20 token = ITIP20(tokenAddr);
 
         implementation = address(new FraxOFTMintableAdapterUpgradeableTIP20(address(token), broadcastConfig.endpoint));

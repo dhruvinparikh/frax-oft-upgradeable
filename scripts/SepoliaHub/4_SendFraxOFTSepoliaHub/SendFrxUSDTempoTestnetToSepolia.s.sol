@@ -12,24 +12,21 @@ import { IOFT, SendParam, MessagingFee } from "@fraxfinance/layerzero-v2-upgrade
 /// @title SendCrossChainScript
 /// @notice Sends frxUSD cross-chain via LayerZero OFT
 /// @dev Usage:
-///   forge script scripts/SepoliaHub/4_SendFraxOFTSepoliaHub/SendFrxUSDTempoTestnetToSepolia \
-///     --rpc-url https://rpc.testnet.tempo.xyz \
-///     --broadcast \
-///     --skip-simulation
+///   forge script scripts/SepoliaHub/4_SendFraxOFTSepoliaHub/SendFrxUSDTempoTestnetToSepolia --rpc-url https://rpc.moderato.tempo.xyz --broadcast
 contract SendFrxUSDTempoTestnetToSepolia is Script {
     uint256 public configDeployerPK = vm.envUint("PK_CONFIG_DEPLOYER");
 
     // Hardcoded TIP20 token address (frxUSD)
-    address internal constant TOKEN = 0x20C00000000000000000000000000000001116e8;
+    address internal constant TOKEN = 0x20c000000000000000000000cf5b0F48F7fEDC7F;
 
     // frxUSD OFT adapter on Tempo testnet
-    address internal constant OFT_ADAPTER = 0x8Ee7E00790c18f28B65BC4771F2a8273D88f2A54;
+    address internal constant OFT_ADAPTER = 0x16FBfCF4970D4550791faF75AE9BaecE75C85A27;
 
     // Ethereum Sepolia EID
     uint32 internal constant DST_EID = 40161;
 
-    // Amount to send (1 frxUSD with 6 decimals)
-    uint256 internal constant AMOUNT = 1e6;
+    // Amount to send (0.01 frxUSD with 6 decimals)
+    uint256 internal constant AMOUNT = 1e4;
 
     // ISSUER_ROLE for TIP20 tokens
     bytes32 internal constant ISSUER_ROLE = keccak256("ISSUER_ROLE");
@@ -38,13 +35,14 @@ contract SendFrxUSDTempoTestnetToSepolia is Script {
         vm.startBroadcast(configDeployerPK);
 
         address sender = vm.addr(configDeployerPK);
+        address receiver = 0x0990be6dB8c785FBbF9deD8bAEc612A10CaE814b;
 
         StdPrecompiles.TIP_FEE_MANAGER.setUserToken(TOKEN);
 
         // 1. Build SendParam for cross-chain transfer
         SendParam memory sendParam = SendParam({
             dstEid: DST_EID,
-            to: bytes32(uint256(uint160(sender))), // Send to self on destination
+            to: bytes32(uint256(uint160(receiver))), // Send to receiver on destination
             amountLD: AMOUNT,
             minAmountLD: AMOUNT, // No slippage tolerance
             extraOptions: "",
@@ -56,6 +54,7 @@ contract SendFrxUSDTempoTestnetToSepolia is Script {
         MessagingFee memory fee = IOFT(OFT_ADAPTER).quoteSend(sendParam, false);
 
         // 3. Approve the OFT adapter to spend tokens
+        // ITIP20(StdTokens.PATH_USD_ADDRESS).approve(OFT_ADAPTER, fee.nativeFee);
         ITIP20(TOKEN).approve(OFT_ADAPTER, AMOUNT + fee.nativeFee);
 
         // 4. Send tokens cross-chain, paying fees either in TIP20 or native
