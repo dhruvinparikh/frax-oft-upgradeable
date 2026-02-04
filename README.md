@@ -53,6 +53,7 @@ This repository contains all of the contracts and deployment code used to manage
   - [`HyperEVM`](https://safe.onchainden.com/home?safe=hyperevm:0x738ee62157f127C879Ff5c4B7102Eb0d166C7a6d)
   - [`Stable`](https://app.safe.global/home?safe=stable:0x0C46f54BF9EF8fd58e2D294b8cEA488204EcB3D8)
   - [`Monad`](https://app.safe.global/home?safe=monad:0x47FF5bBAB981Ff022743AA4281D4d6Dd7Fb1a4D0)
+  - [`Tempo`](https://app.test.safe.protofire.io/home?safe=tempo:0x5283361222383E1673627cec48767339a13c5e6A)
 
 ### Proxy (upgradeable) OFTs
 - Chain: `Mode`, `Sei`, `X-Layer`, `Ink`, `Sonic`, `Arbitrum`, `Optimism`, `Polygon`, `BSC`, `Avalanche`, `Polygon zkEvm`, `Blast`, `Berachain`, `Worldchain`, `Unichain`, `Plume`, `Katana`, `Aurora`, `Hyperliquid`, `Stable`
