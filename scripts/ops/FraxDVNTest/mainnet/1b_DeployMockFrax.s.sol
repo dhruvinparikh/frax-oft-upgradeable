@@ -102,7 +102,7 @@ contract DeployMockFrax is DeployFraxOFTProtocol {
         require(proxyOftWallets.length == 1, "Did not deploy OFT Wallet");
     }
 
-    function deployFraxOFTUpgradeablesAndProxies() public override broadcastAs(oftDeployerPK) {
+    function deployFraxOFTUpgradeablesAndProxies() public virtual override broadcastAs(oftDeployerPK) {
         // Implementation mock (0x8f1B9c1fd67136D525E14D96Efb3887a33f16250 if predeterministic)
         implementationMock = address(new ImplementationMock());
 
@@ -119,7 +119,7 @@ contract DeployMockFrax is DeployFraxOFTProtocol {
     function deployFraxOFTUpgradeableAndProxy(
         string memory _name,
         string memory _symbol
-    ) public override returns (address implementation, address proxy) {
+    ) public virtual override returns (address implementation, address proxy) {
         proxyAdmin = mFraxProxyAdmin;
 
         implementation = address(new FraxOFTUpgradeable(broadcastConfig.endpoint));

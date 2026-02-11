@@ -4,6 +4,7 @@ pragma solidity ^0.8.19;
 import "../BaseL0Script.sol";
 
 import { SetDVNs } from "scripts/DeployFraxOFTProtocol/inherited/SetDVNs.s.sol";
+import { ICreateX } from "tempo-std/interfaces/ICreateX.sol";
 
 /*
 TODO
@@ -14,6 +15,8 @@ contract DeployFraxOFTProtocol is SetDVNs, BaseL0Script {
     using OptionsBuilder for bytes;
     using stdJson for string;
     using Strings for uint256;
+
+    ICreateX public constant CREATEX = ICreateX(0xba5Ed099633D3B313e4D5F7bdc1305d3c28ba5Ed);
 
     function version() public virtual override pure returns (uint256, uint256, uint256) {
         return (1, 3, 1);
@@ -206,8 +209,6 @@ contract DeployFraxOFTProtocol is SetDVNs, BaseL0Script {
         string memory _symbol
     ) public virtual returns (address implementation, address proxy) {
         implementation = address(new FraxOFTUpgradeable(broadcastConfig.endpoint)); 
-        /// @dev: create semi-pre-deterministic proxy address, then initialize with correct implementation
-        proxy = address(new TransparentUpgradeableProxy(implementationMock, vm.addr(oftDeployerPK), ""));
 
         /// @dev: broadcastConfig deployer is temporary OFT owner until setPriviledgedRoles()
         bytes memory initializeArgs = abi.encodeWithSelector(
@@ -216,11 +217,15 @@ contract DeployFraxOFTProtocol is SetDVNs, BaseL0Script {
             _symbol,
             vm.addr(configDeployerPK)
         );
-        TransparentUpgradeableProxy(payable(proxy)).upgradeToAndCall({
-            newImplementation: implementation,
-            data: initializeArgs
+
+        /// @dev: use CREATEX to create deterministic proxy address across chains
+        proxy = deployDeterministicProxy({
+            _implementation: implementation,
+            _proxyAdmin: proxyAdmin,
+            _initializeArgs: initializeArgs,
+            _salt: _symbol
         });
-        TransparentUpgradeableProxy(payable(proxy)).changeAdmin(proxyAdmin);
+
         proxyOfts.push(proxy);
 
         // State checks
@@ -250,19 +255,21 @@ contract DeployFraxOFTProtocol is SetDVNs, BaseL0Script {
     ///     With state checks
     function deployFrxUsdOFTUpgradeableAndProxy() public virtual returns (address implementation, address proxy) {
         implementation = address(new FrxUSDOFTUpgradeable(broadcastConfig.endpoint)); 
-        /// @dev: create semi-pre-deterministic proxy address, then initialize with correct implementation
-        proxy = address(new TransparentUpgradeableProxy(implementationMock, vm.addr(oftDeployerPK), ""));
 
         /// @dev: broadcastConfig deployer is temporary OFT owner until setPriviledgedRoles()
         bytes memory initializeArgs = abi.encodeWithSelector(
             FrxUSDOFTUpgradeable.initialize.selector,
             vm.addr(configDeployerPK)
         );
-        TransparentUpgradeableProxy(payable(proxy)).upgradeToAndCall({
-            newImplementation: implementation,
-            data: initializeArgs
+
+        /// @dev: use CREATEX to create deterministic proxy address across chains
+        proxy = deployDeterministicProxy({
+            _implementation: implementation,
+            _proxyAdmin: proxyAdmin,
+            _initializeArgs: initializeArgs,
+            _salt: "frxUSD"
         });
-        TransparentUpgradeableProxy(payable(proxy)).changeAdmin(proxyAdmin);
+
         proxyOfts.push(proxy);
 
         // State checks
@@ -673,5 +680,34 @@ contract DeployFraxOFTProtocol is SetDVNs, BaseL0Script {
                 data: _data
             })
         );
+    }
+
+    /// @notice Deploy a TransparentUpgradeableProxy using CREATE3 for deterministic addresses
+    /// @param _implementation The implementation contract address
+    /// @param _proxyAdmin The proxy admin address
+    /// @param _initializeArgs The encoded initialize call data
+    /// @param _salt A string used to generate the CREATE3 salt
+    /// @return proxy The deployed proxy address
+    function deployDeterministicProxy(
+        address _implementation,
+        address _proxyAdmin,
+        bytes memory _initializeArgs,
+        string memory _salt
+    ) public virtual returns (address proxy) {
+        bytes32 salt = _generateCreate3Salt(vm.addr(oftDeployerPK), _salt);
+        bytes memory creationCode = type(TransparentUpgradeableProxy).creationCode;
+        proxy = CREATEX.deployCreate3(
+            salt,
+            abi.encodePacked(creationCode, abi.encode(_implementation, _proxyAdmin, _initializeArgs))
+        );
+    }
+
+    /// @notice Generate a CREATE3 salt for deterministic deployment
+    /// @param _deployer The address of the deployer
+    /// @param _name The name used to generate the salt
+    /// @return The generated salt
+    function _generateCreate3Salt(address _deployer, string memory _name) internal pure returns (bytes32) {
+        // hex"00" ensures address is deterministic across chains
+        return bytes32(abi.encodePacked(_deployer, hex"00", bytes11(keccak256(bytes(_name)))));
     }
 }
