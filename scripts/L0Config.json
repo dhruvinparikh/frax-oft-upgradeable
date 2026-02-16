@@ -377,14 +377,14 @@
         {
             "RPC": "https://rpc.tempo.xyz",
             "chainid": 4217,
-            "delegate": "0x5283361222383E1673627cec48767339a13c5e6A",
+            "delegate": "0x1Ba19a54a01AE967f5E3895764Caaa6919FD2bEe",
             "dvnHorizen": "0x0000000000000000000000000000000000000000",
-            "dvnL0": "0x306b9a8953b9462f8b826e6768a93c8ea7454965",
+            "dvnL0": "0x76faff60799021b301b45dc1bbede53f261f9961",
             "eid": 30410,
-            "endpoint": "0x8bC1e36F015b9902B54b1387A4d733cebc2f5A4e",
+            "endpoint": "0x20Bb7C2E2f4e5ca2B4c57060d1aE2615245dCc9C",
             "proxyAdmin": "0x0000000000000000000000000000000000000000",
-            "receiveLib302": "0x6788f52439ACA6BFF597d3eeC2DC9a44B8FEE842",
-            "sendLib302": "0x282b3386571f7f794450d5789911a9804FA346b4"
+            "receiveLib302": "0x0B6F08C2D39421Acb49c99abCe82050e356171e5",
+            "sendLib302": "0x572863d9247E52026E0892d9Cd2E519B41EdB73C"
         },
         {
             "RPC": "https://api.mainnet.abs.xyz",
@@ -523,7 +523,7 @@
             "receiveLib302": "0x53fd4C4fBBd53F6bC58CaE6704b92dB1f360A648",
             "sendLib302": "0x1d186C560281B8F1AF831957ED5047fD3AB902F9"
         },
-         {
+        {
             "RPC": "https://rpc.moderato.tempo.xyz",
             "chainid": 42431,
             "delegate": "0x0000000000000000000000000000000000000000",
