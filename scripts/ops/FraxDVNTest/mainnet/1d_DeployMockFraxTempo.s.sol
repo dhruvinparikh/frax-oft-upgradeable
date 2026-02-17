@@ -51,18 +51,18 @@ import { StdTokens } from "tempo-std/StdTokens.sol";
 //   --broadcast \
 //   --verify
 
-// tempo : forge script ./scripts/ops/FraxDVNTest/mainnet/1d_DeployMockFraxTempo.s.sol --rpc-url $TEMPO_RPC_URL --verify --broadcast
+// tempo : forge script ./scripts/ops/FraxDVNTest/mainnet/1d_DeployMockFraxTempo.s.sol --rpc-url $TEMPO_RPC_URL --tempo.fee-token 0x20c0000000000000000000000000000000000000 --gas-estimate-multiplier 100 --broadcast --verify --skip-simulation
 
 contract DeployMockFraxTempo is DeployMockFrax {
     function deployFraxOFTUpgradeablesAndProxies() public override broadcastAs(oftDeployerPK) {
         // Implementation mock
         implementationMock = 0x01c9C9aD9FCF0Be1Bb028A503DA27BaE1eEe8205; // address(new ImplementationMock());
 
-        // Deploy Mock Frax using Tempo variant
-        deployFraxOFTUpgradeableAndProxy({ _name: "Mock Frax", _symbol: "mFRAX" });
+        // // Deploy Mock Frax using Tempo variant
+        // deployFraxOFTUpgradeableAndProxy({ _name: "Mock Frax", _symbol: "mFRAX" });
 
         // Deploy OFT Wallet
-        // deployFraxOFTWalletUpgradeableAndProxy();
+        deployFraxOFTWalletUpgradeableAndProxy();
     }
 
     /// @notice Deploy FraxOFTUpgradeableTempo instead of FraxOFTUpgradeable

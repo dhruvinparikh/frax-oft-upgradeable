@@ -104,7 +104,7 @@ contract DeployMockFrax is DeployFraxOFTProtocol {
 
     function postDeployChecks() internal view override {
         require(proxyOfts.length == 1, "Did not deploy OFT");
-        // require(proxyOftWallets.length == 1, "Did not deploy OFT Wallet");
+        require(proxyOftWallets.length == 1, "Did not deploy OFT Wallet");
     }
 
     function deployFraxOFTUpgradeablesAndProxies() public virtual override broadcastAs(oftDeployerPK) {
