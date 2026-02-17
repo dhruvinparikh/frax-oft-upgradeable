@@ -8,23 +8,61 @@ import { FraxOFTUpgradeable } from "contracts/FraxOFTUpgradeable.sol";
 import { StdPrecompiles } from "tempo-std/StdPrecompiles.sol";
 import { StdTokens } from "tempo-std/StdTokens.sol";
 
-// tempo : forge script ./scripts/ops/FraxDVNTest/mainnet/1c_DeployMockFraxTempo.s.sol --rpc-url $TEMPO_RPC_URL --verify --broadcast
+// # Set environment variables
+// export TEMPO_RPC_URL=https://user:pass@rpc.tempo.xyz
+// export VERIFIER_URL=https://user:pass@contracts.tempo.xyz/v2/contract
+ 
+// # Run all tests on Tempo's testnet
+// forge test
+ 
+// # Deploy a simple contract
+// forge create src/Mail.sol:Mail \
+//   --rpc-url $TEMPO_RPC_URL \
+//   --interactive \
+//   --broadcast \
+//   --verify \
+//   --constructor-args 0x20c000000000000000000000033abb6ac7d235e5
+ 
+// # Deploy a simple contract with custom fee token
+// forge create src/Mail.sol:Mail \
+//   --fee-token <FEE_TOKEN_ADDRESS> \
+//   --rpc-url $TEMPO_RPC_URL \
+//   --interactive \
+//   --broadcast \
+//   --verify \
+//   --constructor-args 0x20c000000000000000000000033abb6ac7d235e5
+ 
+// # Run a deployment script and verify on Tempo's explorer
+// forge script script/Mail.s.sol \
+//   --sig "run(string)" <SALT> \
+//   --rpc-url $TEMPO_RPC_URL \
+//   --interactive \
+//   --sender <YOUR_WALLET_ADDRESS> \
+//   --broadcast \
+//   --verify
+ 
+// # Run a deployment script with custom fee token and verify on Tempo's explorer
+// forge script script/Mail.s.sol \
+//   --fee-token <FEE_TOKEN_ADDRESS> \
+//   --sig "run(string)" <SALT> \
+//   --rpc-url $TEMPO_RPC_URL \
+//   --interactive \
+//   --sender <YOUR_WALLET_ADDRESS> \
+//   --broadcast \
+//   --verify
+
+// tempo : forge script ./scripts/ops/FraxDVNTest/mainnet/1d_DeployMockFraxTempo.s.sol --rpc-url $TEMPO_RPC_URL --verify --broadcast
 
 contract DeployMockFraxTempo is DeployMockFrax {
-    function setUp() public virtual override {
-        StdPrecompiles.TIP_FEE_MANAGER.setUserToken(StdTokens.PATH_USD_ADDRESS);
-        super.setUp();
-    }
-
     function deployFraxOFTUpgradeablesAndProxies() public override broadcastAs(oftDeployerPK) {
         // Implementation mock
-        implementationMock = address(new ImplementationMock());
+        implementationMock = 0x01c9C9aD9FCF0Be1Bb028A503DA27BaE1eEe8205; // address(new ImplementationMock());
 
         // Deploy Mock Frax using Tempo variant
         deployFraxOFTUpgradeableAndProxy({ _name: "Mock Frax", _symbol: "mFRAX" });
 
         // Deploy OFT Wallet
-        deployFraxOFTWalletUpgradeableAndProxy();
+        // deployFraxOFTWalletUpgradeableAndProxy();
     }
 
     /// @notice Deploy FraxOFTUpgradeableTempo instead of FraxOFTUpgradeable

@@ -220,11 +220,17 @@ contract DeployFraxOFTProtocol is SetDVNs, BaseL0Script {
 
         /// @dev: use CREATEX to create deterministic proxy address across chains
         proxy = deployDeterministicProxy({
-            _implementation: implementation,
-            _proxyAdmin: proxyAdmin,
-            _initializeArgs: initializeArgs,
             _salt: _symbol
         });
+
+        // Upgrade to real implementation and initialize
+        TransparentUpgradeableProxy(payable(proxy)).upgradeToAndCall({
+            newImplementation: implementation,
+            data: initializeArgs
+        });
+
+        // Transfer admin to proxyAdmin
+        TransparentUpgradeableProxy(payable(proxy)).changeAdmin(proxyAdmin);
 
         proxyOfts.push(proxy);
 
@@ -264,11 +270,17 @@ contract DeployFraxOFTProtocol is SetDVNs, BaseL0Script {
 
         /// @dev: use CREATEX to create deterministic proxy address across chains
         proxy = deployDeterministicProxy({
-            _implementation: implementation,
-            _proxyAdmin: proxyAdmin,
-            _initializeArgs: initializeArgs,
             _salt: "frxUSD"
         });
+
+        // Upgrade to real implementation and initialize
+        TransparentUpgradeableProxy(payable(proxy)).upgradeToAndCall({
+            newImplementation: implementation,
+            data: initializeArgs
+        });
+
+        // Transfer admin to proxyAdmin
+        TransparentUpgradeableProxy(payable(proxy)).changeAdmin(proxyAdmin);
 
         proxyOfts.push(proxy);
 
@@ -683,22 +695,19 @@ contract DeployFraxOFTProtocol is SetDVNs, BaseL0Script {
     }
 
     /// @notice Deploy a TransparentUpgradeableProxy using CREATE3 for deterministic addresses
-    /// @param _implementation The implementation contract address
-    /// @param _proxyAdmin The proxy admin address
-    /// @param _initializeArgs The encoded initialize call data
+    /// @dev Only deploys the proxy with implementationMock. Caller must handle upgradeToAndCall and changeAdmin.
     /// @param _salt A string used to generate the CREATE3 salt
     /// @return proxy The deployed proxy address
     function deployDeterministicProxy(
-        address _implementation,
-        address _proxyAdmin,
-        bytes memory _initializeArgs,
         string memory _salt
     ) public virtual returns (address proxy) {
         bytes32 salt = _generateCreate3Salt(vm.addr(oftDeployerPK), _salt);
         bytes memory creationCode = type(TransparentUpgradeableProxy).creationCode;
+        
+        // Deploy proxy with implementationMock and deployer as admin (for subsequent calls)
         proxy = CREATEX.deployCreate3(
             salt,
-            abi.encodePacked(creationCode, abi.encode(_implementation, _proxyAdmin, _initializeArgs))
+            abi.encodePacked(creationCode, abi.encode(implementationMock, vm.addr(oftDeployerPK), ""))
         );
     }
 

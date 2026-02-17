@@ -90,6 +90,11 @@ contract DeployMockFrax is DeployFraxOFTProtocol {
                 // Botanix (30376)
                 if (eid == 30376) continue;
             }
+            if (broadcastConfig.eid == 30410) {
+                // L0 team has not setup defaultSendLibrary and defaultReceiveLibrary on tempo for
+                // Solana (30168), Movement (30325), Aptos (30108), Blast (30243)
+                if (eid == 30168 || eid == 30325 || eid == 30108 || eid == 30243) continue;
+            }
             require(
                 IMessageLibManager(broadcastConfig.endpoint).isSupportedEid(uint32(allConfigs[e].eid)),
                 "L0 team required to setup `defaultSendLibrary` and `defaultReceiveLibrary` for EID"
@@ -99,7 +104,7 @@ contract DeployMockFrax is DeployFraxOFTProtocol {
 
     function postDeployChecks() internal view override {
         require(proxyOfts.length == 1, "Did not deploy OFT");
-        require(proxyOftWallets.length == 1, "Did not deploy OFT Wallet");
+        // require(proxyOftWallets.length == 1, "Did not deploy OFT Wallet");
     }
 
     function deployFraxOFTUpgradeablesAndProxies() public virtual override broadcastAs(oftDeployerPK) {
