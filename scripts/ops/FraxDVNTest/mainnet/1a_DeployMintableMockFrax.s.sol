@@ -21,7 +21,46 @@ contract DeployMintableMockFrax is DeployFraxOFTProtocol {
         deploySource();
     }
 
-    function postDeployChecks() internal view override {
+    function preDeployChecks() public view override {
+        for (uint256 e = 0; e < allConfigs.length; e++) {
+            uint256 eid = allConfigs[e].eid;
+            // source and dest eid cannot be same
+            if (eid == broadcastConfig.eid) continue;
+            if (broadcastConfig.eid == 30370) {
+                // L0 team has not setup defaultSendLibrary and defaultReceiveLibrary on plumephoenix for
+                // 30274 (x-layer), polygon zkevm (30158), worldchain (30319), zksync (30165), movement (30325)
+                // and aptos (30108)
+                if (eid == 30274 || eid == 30158 || eid == 30319 || eid == 30165 || eid == 30325 || eid == 30108)
+                    continue;
+            }
+            if (broadcastConfig.eid == 30375) {
+                // L0 team has not setup defaultSendLibrary and defaultReceiveLibrary on katana for
+                // unichain (30320), plumephoenix, (30370), movement (30325) and aptos (30108)
+                if (eid == 30320 || eid == 30370 || eid == 30325 || eid == 30108) continue;
+            }
+            if (broadcastConfig.eid == 30211) {
+                // L0 team has not setup defaultSendLibrary and defaultReceiveLibrary on aurora for
+                // Aptos (30108)
+                if (eid == 30108) continue;
+            }
+            if (broadcastConfig.eid == 30367) {
+                // L0 team has not setup defaultSendLibrary and defaultReceiveLibrary on hyperliquid for
+                // Botanix (30376)
+                if (eid == 30376) continue;
+            }
+            if (broadcastConfig.eid == 30410) {
+                // L0 team has not setup defaultSendLibrary and defaultReceiveLibrary on tempo for
+                // Solana (30168), Movement (30325), Aptos (30108)
+                if (eid == 30168 || eid == 30325 || eid == 30108) continue;
+            }
+            require(
+                IMessageLibManager(broadcastConfig.endpoint).isSupportedEid(uint32(allConfigs[e].eid)),
+                "L0 team required to setup `defaultSendLibrary` and `defaultReceiveLibrary` for EID"
+            );
+        }
+    }
+
+    function postDeployChecks() internal view virtual override {
         require(proxyOfts.length == 1, "Did not deploy OFT");
         require(proxyOftWallets.length == 1, "Did not deploy OFT Wallet");
     }

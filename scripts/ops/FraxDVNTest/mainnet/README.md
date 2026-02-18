@@ -487,4 +487,4 @@ worldchain : https://layerzeroscan.com/tx/0x0662527651bcc375230985fdb1da1bd736d6
 
 ## Tempo
 
-* Fraxtal (pathUSD) : https://layerzeroscan.com/tx/0xbcf4edb87db31f675a84dbba2dcfd5bcdee52281810e247bc26b1fe6cf8951ca
+* Fraxtal (pathUSD) : https://layerzeroscan.com/tx/0xbcf4edb87db31f675a84dbba2dcfd5bcdee52281810e247bc26b1fe6cf8951ca , https://layerzeroscan.com/tx/0x348e784ebbb0229197b2e809980e21551ca4c040e36437a3280ac9c3f67d8390

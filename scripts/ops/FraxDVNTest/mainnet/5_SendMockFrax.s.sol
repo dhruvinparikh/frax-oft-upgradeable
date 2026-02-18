@@ -114,7 +114,7 @@ contract SendMockFrax is BaseL0Script {
                     senderWallet = mockFraxAuroraWallet;
                 } else {
                     // 1,81457,8453,34443,1329,252,196,146,57073,42161,10,137,43114,56,1101,80094,480,130,98866,
-                    // 747474,534352,999
+                    // 747474,534352,999,143,988,4217
                     sourceOFT = mockFrax;
                     senderWallet = mockFraxWallet;
                 }
@@ -161,6 +161,16 @@ contract SendMockFrax is BaseL0Script {
                 // L0 team has not setup defaultSendLibrary and defaultReceiveLibrary on hyperliquid for
                 // Botanix (botanixlabs)
                 if (allConfigs[_i].eid == 30376) continue;
+            }
+            if (broadcastConfig.eid == 30410) {
+                // L0 team has not setup defaultSendLibrary and defaultReceiveLibrary on tempo for
+                // Solana (30168), Movement (30325), Aptos (30108), Blast (30243)
+                if (
+                    allConfigs[_i].eid == 30168 ||
+                    allConfigs[_i].eid == 30325 ||
+                    allConfigs[_i].eid == 30108 ||
+                    allConfigs[_i].eid == 30243
+                ) return;
             }
             bytes32 recipientWallet;
             if (allConfigs[_i].eid == 30168) {
