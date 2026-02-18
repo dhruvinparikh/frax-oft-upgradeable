@@ -36,7 +36,7 @@ import { FraxOFTUpgradeable } from "contracts/FraxOFTUpgradeable.sol";
 
 contract SendMockFrax is BaseL0Script {
     // 1,81457,8453,34443,1329,252,196,146,57073,42161,10,137,43114,56,1101,80094,480,130,
-    // 98866,747474,534352,999
+    // 98866,747474,534352,999,143,988,4217
     address public constant mockFrax = 0x57558Cb8d6005DE0BAe8a2789d5EfaaE52dba5a8;
     address public constant mockFraxWallet = 0x741F0d8Bde14140f62107FC60A0EE122B37D4630;
     // 324, zksync, 30165
@@ -201,7 +201,7 @@ contract SendMockFrax is BaseL0Script {
                 recipientWallet = addressToBytes32(mockFraxAuroraWallet);
             } else {
                 // 1,81457,8453,34443,1329,252,196,146,57073,42161,10,137,43114,56,1101,80094,480,130,98866,747474,
-                // 534352,999
+                // 534352,999, 143, 988, 4217
                 recipientWallet = addressToBytes32(mockFraxWallet);
             }
             SendParam memory _sendParam = SendParam({

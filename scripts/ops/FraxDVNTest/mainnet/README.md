@@ -484,3 +484,7 @@ worldchain : https://layerzeroscan.com/tx/0x0662527651bcc375230985fdb1da1bd736d6
 * solana : https://layerzeroscan.com/tx/4epVNG253o9KZU1Dbzokmx9pECguCeLMCxMkYBXzS4vDbeoGeUwT5YELafcshFCKrjQDoq3KusWXoAFFwPCb2HhG
 
 * hyperliquid : https://layerzeroscan.com/tx/0xccc6e51b492055bc5a524aadfb381dcab33d265c22ab8e5964dc8e9486e7ca1a (zksync, abstract and movement blocked)
+
+## Tempo
+
+* Fraxtal (pathUSD) : https://layerzeroscan.com/tx/0xbcf4edb87db31f675a84dbba2dcfd5bcdee52281810e247bc26b1fe6cf8951ca
