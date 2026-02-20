@@ -10,7 +10,7 @@ import { ITIP20RolesAuth } from "tempo-std/interfaces/ITIP20RolesAuth.sol";
 import { FraxOFTMintableAdapterUpgradeableTIP20 } from "contracts/FraxOFTMintableAdapterUpgradeableTIP20.sol";
 import { FrxUSDPolicyAdminTempo } from "contracts/frxUsd/FrxUSDPolicyAdminTempo.sol";
 
-// tempo : forge script ./scripts/ops/FraxDVNTest/mainnet/1e_DeployMintablemockfrxUSDTIP20.s.sol --rpc-url $TEMPO_RPC_URL --broadcast --verify
+// tempo : forge script ./scripts/ops/FraxDVNTest/mainnet/1e_DeployMintablemockfrxUSDTIP20.s.sol --rpc-url $TEMPO_RPC_URL --tempo.fee-token 0x20c0000000000000000000000000000000000000 --gas-estimate-multiplier 100 --broadcast --verify
 
 contract DeployMintablemockfrxUSDTIP20 is DeployMintableMockFrax {
     bytes32 public constant ISSUER_ROLE = keccak256("ISSUER_ROLE");
@@ -109,14 +109,8 @@ contract DeployMintablemockfrxUSDTIP20 is DeployMintableMockFrax {
         // Deploy implementation
         implementation = address(new FrxUSDPolicyAdminTempo());
 
-        // Deploy deterministic proxy via Nick's CREATE2
-        proxy = deployCreate2({
-            _salt: "FrxUSDPolicyAdminTempo",
-            _initCode: abi.encodePacked(
-                type(TransparentUpgradeableProxy).creationCode,
-                abi.encode(implementationMock, vm.addr(oftDeployerPK), "")
-            )
-        });
+        // Deploy proxy
+        proxy = address(new TransparentUpgradeableProxy(implementationMock, vm.addr(oftDeployerPK), ""));
 
         // Initialize - this creates a BLACKLIST policy in TIP-403 Registry
         bytes memory initializeArgs = abi.encodeWithSelector(

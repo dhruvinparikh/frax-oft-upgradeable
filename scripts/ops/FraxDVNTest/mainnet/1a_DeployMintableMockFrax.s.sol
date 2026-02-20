@@ -15,7 +15,7 @@ import { FraxOFTWalletUpgradeable } from "contracts/FraxOFTWalletUpgradeable.sol
 contract DeployMintableMockFrax is DeployFraxOFTProtocol {
     address[] public proxyOftWallets;
 
-    address mFraxProxyAdmin = 0x8d8290d49e88D16d81C6aDf6C8774eD88762274A;
+    address mFraxProxyAdmin = 0x8d8290d49e88D16d81C6aDf6C8774eD88762274A; // dhruvin's cold wallet
 
     function run() public override {
         deploySource();
@@ -50,8 +50,8 @@ contract DeployMintableMockFrax is DeployFraxOFTProtocol {
             }
             if (broadcastConfig.eid == 30410) {
                 // L0 team has not setup defaultSendLibrary and defaultReceiveLibrary on tempo for
-                // Solana (30168), Movement (30325), Aptos (30108)
-                if (eid == 30168 || eid == 30325 || eid == 30108) continue;
+                // Solana (30168), Movement (30325), Aptos (30108),  Blast (30243)
+                if (eid == 30168 || eid == 30325 || eid == 30108 || eid == 30243) continue;
             }
             require(
                 IMessageLibManager(broadcastConfig.endpoint).isSupportedEid(uint32(allConfigs[e].eid)),
