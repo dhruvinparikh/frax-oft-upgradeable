@@ -109,6 +109,16 @@ contract SendMockFrax is BaseL0Script {
                 // aptos (30108)
                 if (allConfigs[_i].eid == 30108) continue;
             }
+            if (broadcastConfig.eid == 30410) {
+                // L0 team has not setup defaultSendLibrary and defaultReceiveLibrary on tempo for
+                // Solana (30168), Movement (30325), Aptos (30108), Blast (30243)
+                if (
+                    allConfigs[_i].eid == 30168 ||
+                    allConfigs[_i].eid == 30325 ||
+                    allConfigs[_i].eid == 30108 ||
+                    allConfigs[_i].eid == 30243
+                ) continue;
+            }
             if (broadcastConfig.chainid == allConfigs[_i].chainid) {
                 if (allConfigs[_i].chainid == 59144) {
                     // linea
@@ -138,7 +148,6 @@ contract SendMockFrax is BaseL0Script {
         require(sourceOFT != address(0), "SendMockFrax: sourceOFT should not be zero");
         require(senderWallet != address(0), "SendMockFrax: senderWallet should not be zero");
         for (uint256 _i = start; _i < end; _i++) {
-            if (allConfigs[_i].eid != 30255) continue;
             if (broadcastConfig.chainid == allConfigs[_i].chainid) continue;
             if (allConfigs[_i].eid == 30151) continue;
             if (allConfigs[_i].eid == 30376) continue;
@@ -185,7 +194,7 @@ contract SendMockFrax is BaseL0Script {
                     allConfigs[_i].eid == 30325 ||
                     allConfigs[_i].eid == 30108 ||
                     allConfigs[_i].eid == 30243
-                ) return;
+                ) continue;
                 StdPrecompiles.TIP_FEE_MANAGER.setUserToken(gasToken);
             }
             bytes32 recipientWallet;
@@ -227,7 +236,7 @@ contract SendMockFrax is BaseL0Script {
                 recipientWallet = addressToBytes32(mockFraxAuroraWallet);
             } else {
                 // 1,81457,8453,34443,1329,252,196,146,57073,42161,10,137,43114,56,1101,80094,480,130,98866,747474,
-                // 534352,999, 143, 988, 4217
+                // 534352,999,143,988,4217
                 recipientWallet = addressToBytes32(mockFraxWallet);
             }
             SendParam memory _sendParam = SendParam({
