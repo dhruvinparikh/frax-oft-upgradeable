@@ -13,14 +13,14 @@ import { StdTokens } from "tempo-std/StdTokens.sol";
 import { ITIP20 } from "@tempo/interfaces/ITIP20.sol";
 
 // fraxtal : forge script scripts/ops/FraxDVNTest/mainnet/5_SendMockfrxUSD.s.sol --rpc-url https://rpc.frax.com --broadcast
-// tempo : forge script scripts/ops/FraxDVNTest/mainnet/5_SendMockfrxUSD.s.sol --rpc-url https://mainnet.tempo.org --broadcast
+// tempo : forge script scripts/ops/FraxDVNTest/mainnet/5_SendMockfrxUSD.s.sol --rpc-url https://mainnet.tempo.org --gas-estimate-multiplier 100 --broadcast
 
 contract SendMockFrax is BaseL0Script {
     // 252,4217
     address public constant mockfrxUSD = 0x458edF815687e48354909A1a848f2528e1655764;
     address public constant mockFraxWallet = 0x741F0d8Bde14140f62107FC60A0EE122B37D4630;
 
-    uint256 amount = 10000; // 0.25 tokens, scaled by decimals in _amount() function
+    uint256 amount = 25; // 0.25 tokens, scaled by decimals in _amount() function
 
     address gasToken = StdTokens.PATH_USD_ADDRESS; // Tempo's TIP20 gas token, used when broadcasting to Tempo
 
@@ -28,9 +28,11 @@ contract SendMockFrax is BaseL0Script {
     IOFT[] public ofts;
     address[] public destinations;
 
-    /// @dev Returns 0.25 tokens scaled to the OFT's decimals
+    /// @dev Returns 0.25 tokens scaled to the OFT's decimals.
+    ///      Uses IOFT.token() which returns the underlying ERC20 for adapters, or address(this) for pure OFTs.
     function _amount(address _oft) internal view returns (uint256) {
-        uint8 decimals = IERC20Metadata(_oft).decimals();
+        address underlying = IOFT(_oft).token();
+        uint8 decimals = IERC20Metadata(underlying).decimals();
         return (amount * (10 ** decimals)) / 100;
     }
 
@@ -186,6 +188,11 @@ contract SendMockFrax is BaseL0Script {
             destinations.push(senderWallet);
         }
         if (broadcastConfig.eid == 30410) {
+            // Tempo: approve underlying TIP20 token from wallet to OFT adapter for the send amount
+            address underlying = IOFT(sourceOFT).token();
+            uint256 totalSendAmount = _amount(sourceOFT) * sendParams.length;
+            FraxOFTWalletUpgradeableTempo(senderWallet).approveToken(IERC20(underlying), sourceOFT, totalSendAmount);
+
             // Tempo: set gas token, approve wallet to pull TIP20 gas token, then bridge
             ITIP20(gasToken).approve(senderWallet, _totalEthFee);
             FraxOFTWalletUpgradeableTempo(senderWallet).batchBridgeWithTIP20FeeFromWallet(
