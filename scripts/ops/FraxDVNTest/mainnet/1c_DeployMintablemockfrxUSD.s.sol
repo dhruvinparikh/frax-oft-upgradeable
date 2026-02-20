@@ -5,7 +5,7 @@ import { DeployMintableMockFrax } from "./1a_DeployMintableMockFrax.s.sol";
 import "scripts/DeployFraxOFTProtocol/DeployFraxOFTProtocol.s.sol";
 import "contracts/FraxOFTMintableUpgradeable.sol";
 
-// fraxtal : forge script ./scripts/ops/FraxDVNTest/mainnet/1c_DeployMintablemockfrxUSD.s.sol --rpc-url https://rpc.frax.com --verifier-url $FRAXSCAN_API_URL --etherscan-api-key $FRAXSCAN_API_KEY --verify --broadcast
+// fraxtal : forge script ./scripts/ops/FraxDVNTest/mainnet/1c_DeployMintablemockfrxUSD.s.sol --rpc-url https://rpc.frax.com --verifier-url $FRAXSCAN_API_URL --etherscan-api-key $$ETHERSCAN_API_KEY --verify --broadcast
 
 contract DeployMintablemockfrxUSD is DeployMintableMockFrax {
     function deployFraxOFTUpgradeablesAndProxies() public override broadcastAs(oftDeployerPK) {
@@ -16,7 +16,7 @@ contract DeployMintablemockfrxUSD is DeployMintableMockFrax {
         });
 
         // Deploy mock frxUSD
-        deployFraxOFTUpgradeableAndProxy({ _name: "mock frxUSD", _symbol: "frxUSD" });
+        deployFraxOFTUpgradeableAndProxy({ _name: "mock frxUSD", _symbol: "mockfrxUSD" });
     }
 
     function deployFraxOFTUpgradeableAndProxy(

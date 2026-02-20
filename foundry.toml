@@ -33,3 +33,6 @@ remappings = [
 via_ir = false
 optimizer = true
 optimizer_runs = 200
+
+[etherscan]
+fraxtal = { key = "${ETHERSCAN_API_KEY}", url = "${FRAXSCAN_API_URL}" }
