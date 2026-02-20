@@ -3,9 +3,14 @@ pragma solidity ^0.8.19;
 
 import "scripts/BaseL0Script.sol";
 import { FraxOFTWalletUpgradeable } from "contracts/FraxOFTWalletUpgradeable.sol";
+import { FraxOFTWalletUpgradeableTempo } from "contracts/FraxOFTWalletUpgradeableTempo.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SendParam, OFTReceipt, MessagingFee, IOFT } from "@fraxfinance/layerzero-v2-upgradeable/oapp/contracts/oft/interfaces/IOFT.sol";
 import { FraxOFTUpgradeable } from "contracts/FraxOFTUpgradeable.sol";
+import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import { StdPrecompiles } from "tempo-std/StdPrecompiles.sol";
+import { StdTokens } from "tempo-std/StdTokens.sol";
+import { ITIP20 } from "@tempo/interfaces/ITIP20.sol";
 
 // fraxtal : forge script scripts/ops/FraxDVNTest/mainnet/5_SendMockFrax.s.sol --rpc-url https://rpc.frax.com --broadcast
 // ethereum : forge script scripts/ops/FraxDVNTest/mainnet/5_SendMockFrax.s.sol --rpc-url https://ethereum-rpc.publicnode.com --broadcast
@@ -33,6 +38,7 @@ import { FraxOFTUpgradeable } from "contracts/FraxOFTUpgradeable.sol";
 // aurora : forge script scripts/ops/FraxDVNTest/mainnet/5_SendMockFrax.s.sol --rpc-url https://mainnet.aurora.dev --legacy --broadcast
 // scroll : forge script scripts/ops/FraxDVNTest/mainnet/5_SendMockFrax.s.sol --rpc-url https://rpc.scroll.io --broadcast
 // hyperliquid : forge script scripts/ops/FraxDVNTest/mainnet/5_SendMockFrax.s.sol --rpc-url https://rpc.hyperliquid.xyz/evm --broadcast --slow
+// tempo : forge script scripts/ops/FraxDVNTest/mainnet/5_SendMockFrax.s.sol --rpc-url https://mainnet.tempo.org --broadcast
 
 contract SendMockFrax is BaseL0Script {
     // 1,81457,8453,34443,1329,252,196,146,57073,42161,10,137,43114,56,1101,80094,480,130,
@@ -52,11 +58,19 @@ contract SendMockFrax is BaseL0Script {
     address public constant mockFraxAurora = 0xA057D8D4Fc86a62801CE363C169b0A8d192F6cEE;
     address public constant mockFraxAuroraWallet = 0x4a767e2ef83577225522Ef8Ed71056c6E3acB216;
 
-    uint256 amount = 0.25 ether;
+    uint256 amount = 25; // 0.25 tokens, scaled by decimals in _amount() function
+
+    address gasToken = StdTokens.PATH_USD_ADDRESS; // Tempo's TIP20 gas token, used when broadcasting to Tempo
 
     SendParam[] public sendParams;
     IOFT[] public ofts;
     address[] public destinations;
+
+    /// @dev Returns 0.25 tokens scaled to the OFT's decimals
+    function _amount(address _oft) internal view returns (uint256) {
+        uint8 decimals = IERC20Metadata(_oft).decimals();
+        return (amount * (10 ** decimals)) / 100;
+    }
 
     function run() public broadcastAs(configDeployerPK) {
         uint256 _totalEthFee;
@@ -124,6 +138,7 @@ contract SendMockFrax is BaseL0Script {
         require(sourceOFT != address(0), "SendMockFrax: sourceOFT should not be zero");
         require(senderWallet != address(0), "SendMockFrax: senderWallet should not be zero");
         for (uint256 _i = start; _i < end; _i++) {
+            if (allConfigs[_i].eid != 30255) continue;
             if (broadcastConfig.chainid == allConfigs[_i].chainid) continue;
             if (allConfigs[_i].eid == 30151) continue;
             if (allConfigs[_i].eid == 30376) continue;
@@ -171,6 +186,7 @@ contract SendMockFrax is BaseL0Script {
                     allConfigs[_i].eid == 30108 ||
                     allConfigs[_i].eid == 30243
                 ) return;
+                StdPrecompiles.TIP_FEE_MANAGER.setUserToken(gasToken);
             }
             bytes32 recipientWallet;
             if (allConfigs[_i].eid == 30168) {
@@ -217,7 +233,7 @@ contract SendMockFrax is BaseL0Script {
             SendParam memory _sendParam = SendParam({
                 dstEid: uint32(allConfigs[_i].eid),
                 to: recipientWallet,
-                amountLD: amount,
+                amountLD: _amount(sourceOFT),
                 minAmountLD: 0,
                 extraOptions: "",
                 composeMsg: "",
@@ -229,10 +245,21 @@ contract SendMockFrax is BaseL0Script {
             ofts.push(IOFT(sourceOFT));
             destinations.push(senderWallet);
         }
-        FraxOFTWalletUpgradeable(senderWallet).batchBridgeWithEthFeeFromWallet{ value: _totalEthFee }(
-            sendParams,
-            ofts,
-            destinations
-        );
+        if (broadcastConfig.eid == 30410) {
+            // Tempo: set gas token, approve wallet to pull TIP20 gas token, then bridge
+            ITIP20(gasToken).approve(senderWallet, _totalEthFee);
+            FraxOFTWalletUpgradeableTempo(senderWallet).batchBridgeWithTIP20FeeFromWallet(
+                sendParams,
+                ofts,
+                destinations
+            );
+        } else {
+            // All other chains: pays ETH
+            FraxOFTWalletUpgradeable(senderWallet).batchBridgeWithEthFeeFromWallet{ value: _totalEthFee }(
+                sendParams,
+                ofts,
+                destinations
+            );
+        }
     }
 }

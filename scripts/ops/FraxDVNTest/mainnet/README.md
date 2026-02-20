@@ -6,7 +6,7 @@
 * `delegate` : `0x45dce8e4f2dc005a5f28206a46cb034697eeda8e`
 * `proxyAdmin` : `0x45dce8e4f2dc005a5f28206a46cb034697eeda8e`
 
-* `ethereum` , `blast` , `base` , `mode` , `sei` , `frax` , `xlayer` , `sonic` , `ink` , `arbitrum` , `optimism` , `polygon` , `avalanche` , `bsc` , `zkpolygon` , `berachain` , `worldchain` , `unichain`
+* `ethereum` , `blast` , `base` , `mode` , `sei` , `frax` , `xlayer` , `sonic` , `ink` , `arbitrum` , `optimism` , `polygon` , `avalanche` , `bsc` , `zkpolygon` , `berachain` , `worldchain` , `unichain`, `Plume`, `Katana`, `Aurora`, `Hyperliquid`,  `Stable`, `Tempo` 
   * `mockFrax` : `0x57558Cb8d6005DE0BAe8a2789d5EfaaE52dba5a8`
   * `fraxOFTWallet` : `0x741F0d8Bde14140f62107FC60A0EE122B37D4630`
 * `zksync`
@@ -488,3 +488,6 @@ worldchain : https://layerzeroscan.com/tx/0x0662527651bcc375230985fdb1da1bd736d6
 ## Tempo
 
 * Fraxtal (pathUSD) : https://layerzeroscan.com/tx/0xbcf4edb87db31f675a84dbba2dcfd5bcdee52281810e247bc26b1fe6cf8951ca , https://layerzeroscan.com/tx/0x348e784ebbb0229197b2e809980e21551ca4c040e36437a3280ac9c3f67d8390
+
+* Tempo (pathUSD) : https://layerzeroscan.com/tx/0x82b8f29b1744a8a8e2438d6b20253c0e0cb1ec98139d463d2fdb033295d0c39c
+
