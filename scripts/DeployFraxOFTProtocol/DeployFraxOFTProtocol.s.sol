@@ -4,7 +4,6 @@ pragma solidity ^0.8.19;
 import "../BaseL0Script.sol";
 
 import { SetDVNs } from "scripts/DeployFraxOFTProtocol/inherited/SetDVNs.s.sol";
-import { ICreateX } from "tempo-std/interfaces/ICreateX.sol";
 
 /*
 TODO
@@ -16,7 +15,8 @@ contract DeployFraxOFTProtocol is SetDVNs, BaseL0Script {
     using stdJson for string;
     using Strings for uint256;
 
-    ICreateX public constant CREATEX = ICreateX(0xba5Ed099633D3B313e4D5F7bdc1305d3c28ba5Ed);
+    /// @dev Nick's method CREATE2 deployer (keyless deployment, available on all EVM chains)
+    address public constant NICK_CREATE2_DEPLOYER = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
 
     function version() public virtual override pure returns (uint256, uint256, uint256) {
         return (1, 3, 1);
@@ -153,11 +153,20 @@ contract DeployFraxOFTProtocol is SetDVNs, BaseL0Script {
 
     function deployFraxOFTUpgradeablesAndProxies() broadcastAs(oftDeployerPK) public virtual {
 
-        // Proxy admin (0x223a681fc5c5522c85C96157c0efA18cd6c5405c if predeterministic)
-        proxyAdmin = address(new FraxProxyAdmin(vm.addr(configDeployerPK)));
+        // Proxy admin — deployed deterministically via Nick's CREATE2
+        proxyAdmin = deployCreate2({
+            _salt: "FraxProxyAdmin",
+            _initCode: abi.encodePacked(
+                type(FraxProxyAdmin).creationCode,
+                abi.encode(vm.addr(configDeployerPK))
+            )
+        });
 
-        // Implementation mock (0x8f1B9c1fd67136D525E14D96Efb3887a33f16250 if predeterministic)
-        implementationMock = address(new ImplementationMock());
+        // Implementation mock — deployed deterministically via Nick's CREATE2
+        implementationMock = deployCreate2({
+            _salt: "ImplementationMock",
+            _initCode: type(ImplementationMock).creationCode
+        });
 
         // / @dev: follows deployment order of legacy OFTs found at https://etherscan.io/address/0xded884435f2db0169010b3c325e733df0038e51d
         // Deploy WFRAX
@@ -218,9 +227,13 @@ contract DeployFraxOFTProtocol is SetDVNs, BaseL0Script {
             vm.addr(configDeployerPK)
         );
 
-        /// @dev: use CREATEX to create deterministic proxy address across chains
-        proxy = deployDeterministicProxy({
-            _salt: _symbol
+        /// @dev: deploy deterministic proxy via Nick's CREATE2
+        proxy = deployCreate2({
+            _salt: _symbol,
+            _initCode: abi.encodePacked(
+                type(TransparentUpgradeableProxy).creationCode,
+                abi.encode(implementationMock, vm.addr(oftDeployerPK), "")
+            )
         });
 
         // Upgrade to real implementation and initialize
@@ -268,9 +281,13 @@ contract DeployFraxOFTProtocol is SetDVNs, BaseL0Script {
             vm.addr(configDeployerPK)
         );
 
-        /// @dev: use CREATEX to create deterministic proxy address across chains
-        proxy = deployDeterministicProxy({
-            _salt: "frxUSD"
+        /// @dev: deploy deterministic proxy via Nick's CREATE2
+        proxy = deployCreate2({
+            _salt: "frxUSD",
+            _initCode: abi.encodePacked(
+                type(TransparentUpgradeableProxy).creationCode,
+                abi.encode(implementationMock, vm.addr(oftDeployerPK), "")
+            )
         });
 
         // Upgrade to real implementation and initialize
@@ -694,29 +711,48 @@ contract DeployFraxOFTProtocol is SetDVNs, BaseL0Script {
         );
     }
 
-    /// @notice Deploy a TransparentUpgradeableProxy using CREATE3 for deterministic addresses
-    /// @dev Only deploys the proxy with implementationMock. Caller must handle upgradeToAndCall and changeAdmin.
-    /// @param _salt A string used to generate the CREATE3 salt
-    /// @return proxy The deployed proxy address
-    function deployDeterministicProxy(
-        string memory _salt
-    ) public virtual returns (address proxy) {
-        bytes32 salt = _generateCreate3Salt(vm.addr(oftDeployerPK), _salt);
-        bytes memory creationCode = type(TransparentUpgradeableProxy).creationCode;
-        
-        // Deploy proxy with implementationMock and deployer as admin (for subsequent calls)
-        proxy = CREATEX.deployCreate3(
-            salt,
-            abi.encodePacked(creationCode, abi.encode(implementationMock, vm.addr(oftDeployerPK), ""))
+    /// @notice Deploy a contract deterministically using Nick's CREATE2 factory
+    /// @dev Address = keccak256(0xff ++ factory ++ salt ++ keccak256(initCode))[12:].
+    ///      Identical salt + initCode yields the same address on every chain.
+    /// @param _salt A string used to generate the CREATE2 salt
+    /// @param _initCode The full creation code (creationCode ++ constructor args) to deploy
+    /// @return deployed The deployed contract address
+    function deployCreate2(
+        string memory _salt,
+        bytes memory _initCode
+    ) public virtual returns (address deployed) {
+        bytes32 salt = _generateCreate2Salt(vm.addr(oftDeployerPK), _salt);
+
+        // Deploy via Nick's CREATE2 factory: calldata = salt ++ initCode
+        (bool success, bytes memory ret) = NICK_CREATE2_DEPLOYER.call(
+            abi.encodePacked(salt, _initCode)
         );
+        require(success && ret.length == 20, "Nick CREATE2 deployment failed");
+        deployed = address(uint160(bytes20(ret)));
     }
 
-    /// @notice Generate a CREATE3 salt for deterministic deployment
+    /// @notice Compute the deterministic address for a Nick's CREATE2 deployment
+    /// @param _salt A string used to generate the CREATE2 salt
+    /// @param _initCode The full creation code (creationCode ++ constructor args)
+    /// @return The predicted address
+    function computeCreate2Address(
+        string memory _salt,
+        bytes memory _initCode
+    ) public virtual view returns (address) {
+        bytes32 salt = _generateCreate2Salt(vm.addr(oftDeployerPK), _salt);
+        return address(uint160(uint256(keccak256(abi.encodePacked(
+            bytes1(0xff),
+            NICK_CREATE2_DEPLOYER,
+            salt,
+            keccak256(_initCode)
+        )))));
+    }
+
+    /// @notice Generate a CREATE2 salt for deterministic deployment
     /// @param _deployer The address of the deployer
     /// @param _name The name used to generate the salt
     /// @return The generated salt
-    function _generateCreate3Salt(address _deployer, string memory _name) internal pure returns (bytes32) {
-        // hex"00" ensures address is deterministic across chains
-        return bytes32(abi.encodePacked(_deployer, hex"00", bytes11(keccak256(bytes(_name)))));
+    function _generateCreate2Salt(address _deployer, string memory _name) internal pure returns (bytes32) {
+        return keccak256(abi.encodePacked(_deployer, _name));
     }
 }
