@@ -583,13 +583,23 @@ contract DeployFraxOFTProtocol is SetDVNs, BaseL0Script {
         // clear out any pre-existing enforced options params
         delete enforcedOptionParams;
 
+        // Tempo-specific enforced options (higher gas)
+        bytes memory tempoOptionsTypeOne = OptionsBuilder.newOptions().addExecutorLzReceiveOption(2_000_000, 0);
+        bytes memory tempoOptionsTypeTwo = OptionsBuilder.newOptions().addExecutorLzReceiveOption(2_500_000, 0);
+
         // Build enforced options for each chain
         for (uint256 c=0; c<_configs.length; c++) {            
             // cannot set enforced options to self
             if (block.chainid == _configs[c].chainid) continue;
 
-            enforcedOptionParams.push(EnforcedOptionParam(uint32(_configs[c].eid), 1, _optionsTypeOne));
-            enforcedOptionParams.push(EnforcedOptionParam(uint32(_configs[c].eid), 2, _optionsTypeTwo));
+            // Use higher gas limits for Tempo (eid 30410)
+            if (_configs[c].eid == 30410) {
+                enforcedOptionParams.push(EnforcedOptionParam(uint32(_configs[c].eid), 1, tempoOptionsTypeOne));
+                enforcedOptionParams.push(EnforcedOptionParam(uint32(_configs[c].eid), 2, tempoOptionsTypeTwo));
+            } else {
+                enforcedOptionParams.push(EnforcedOptionParam(uint32(_configs[c].eid), 1, _optionsTypeOne));
+                enforcedOptionParams.push(EnforcedOptionParam(uint32(_configs[c].eid), 2, _optionsTypeTwo));
+            }
         }
 
         for (uint256 o=0; o<_connectedOfts.length; o++) {
