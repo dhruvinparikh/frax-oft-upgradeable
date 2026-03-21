@@ -388,13 +388,13 @@
         },
         {
             "RPC": "https://api.infra.mainnet.somnia.network",
-            "chainid": 50312,
+            "chainid": 5031,
             "delegate": "0x9527e19F55d1afCE9F1e9Edcea79552bF41983F9",
             "dvnHorizen": "0x5fddd320a1e29bb466fa635661b125d51d976f92",
             "dvnL0": "0x282b3386571f7f794450d5789911a9804fa346b4",
             "eid": 30380,
             "endpoint": "0x6F475642a6e85809B1c36Fa62763669b1b48DD5B",
-            "proxyAdmin": "0x000000dbfaA1Fb91ca46867cE6D41aB6da4f7428",
+            "proxyAdmin": "0x0000000000000000000000000000000000000000",
             "receiveLib302": "0xe1844c5D63a9543023008D332Bd3d2e6f1FE1043",
             "sendLib302": "0xC39161c743D0307EB9BCc9FEF03eeb9Dc4802de7"
         },
