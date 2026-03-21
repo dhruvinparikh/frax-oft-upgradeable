@@ -296,6 +296,7 @@ contract DeployFraxOFTProtocol is SetDVNs, BaseL0Script {
             "OFT owner incorrect"
         );
         console.log(string.concat("  Deployed ", _expectedSymbol, " proxy"));
+        console.log("    Proxy address:", proxy);
     }
 
     /// @notice Transfer delegate + ownership of all OFTs and the ProxyAdmin to the

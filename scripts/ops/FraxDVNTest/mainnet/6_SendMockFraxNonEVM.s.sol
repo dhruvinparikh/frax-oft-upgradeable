@@ -36,7 +36,7 @@ contract SendMockFrax is BaseL0Script {
     address public constant mockFraxWallet = 0x741F0d8Bde14140f62107FC60A0EE122B37D4630;
     // 5031, somnia, 30380
     address public constant mockFraxSomnia = 0x741F0d8Bde14140f62107FC60A0EE122B37D4630;
-    address public constant mockFraxSomniaWallet = 0xe75177ed629a4770E2da00e1395C28A5F9B745D4;
+    address public constant mockFraxSomniaWallet = 0xE75177ED629a4770e2DA00e1395c28A5f9B745d4;
     // 324, zksync, 30165
     address public constant mockFraxZkSync = 0x3Fc877008e396FdD7f9Ee3Deb2e8A54d54da705A;
     address public constant mockFraxZkSyncWallet = 0x0065435a2FcC4D4D5CD2c284C5daA9588E6fe03d;

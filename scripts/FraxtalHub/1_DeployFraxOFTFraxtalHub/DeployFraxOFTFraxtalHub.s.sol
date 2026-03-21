@@ -5,10 +5,17 @@ import "scripts/DeployFraxOFTProtocol/DeployFraxOFTProtocol.s.sol";
 import { FraxOFTWalletUpgradeable } from "contracts/FraxOFTWalletUpgradeable.sol";
 
 // Deploy everything with a hub model vs. a spoke model where the only peer is Fraxtal
-// forge script scripts/FraxtalHub/1_DeployFraxOFTFraxtalHub/DeployFraxOFTFraxtalHub.s.sol --rpc-url $RPC_URL --broadcast
+// forge script scripts/FraxtalHub/1_DeployFraxOFTFraxtalHub/DeployFraxOFTFraxtalHub.s.sol --rpc-url $RPC_URL --gcp --sender 0x54f9b12743a7deec0ea48721683cbebedc6e17bc --broadcast
 contract DeployFraxOFTFraxtalHub is DeployFraxOFTProtocol {
     L0Config[] public tempConfigs;
     address[] public proxyOftWallets;
+
+    /// @notice Use --sender / --gcp instead of a raw private key.
+    modifier broadcastAs(uint256) override {
+        vm.startBroadcast();
+        _;
+        vm.stopBroadcast();
+    }
 
     function run() public override {
         require(broadcastConfig.chainid != 252, "Deployment not allowed on fraxtal");
@@ -40,38 +47,19 @@ contract DeployFraxOFTFraxtalHub is DeployFraxOFTProtocol {
         }
     }
 
+    /// @notice Use msg.sender as temporary proxy admin (GCS deployer broadcasts directly).
+    function _proxyTempAdmin() internal view override returns (address) {
+        return msg.sender;
+    }
+
+    /// @notice Skip wallet check — wallet not deployed on Tempo.
+    function postDeployChecks() internal view override {
+        require(proxyOfts.length == NUM_OFTS, "Did not deploy all OFTs");
+    }
+
     function deploySource() public override {
         // preDeployChecks();
         deployFraxOFTUpgradeablesAndProxies();
-        deployFraxOFTWalletUpgradeableAndProxy();
         postDeployChecks();
-    }
-
-    function deployFraxOFTWalletUpgradeableAndProxy()
-        public
-        virtual
-        broadcastAs(oftDeployerPK)
-        returns (address implementation, address proxy)
-    {
-        implementation = address(new FraxOFTWalletUpgradeable());
-        /// @dev: create semi-pre-deterministic proxy address, then initialize with correct implementation
-        proxy = address(new TransparentUpgradeableProxy(implementationMock, _proxyTempAdmin(), ""));
-        /// @dev: broadcastConfig deployer is temporary owner until setPriviledgedRoles()
-        bytes memory initializeArgs = abi.encodeWithSelector(
-            FraxOFTWalletUpgradeable.initialize.selector,
-            vm.addr(configDeployerPK)
-        );
-        TransparentUpgradeableProxy(payable(proxy)).upgradeToAndCall({
-            newImplementation: implementation,
-            data: initializeArgs
-        });
-        TransparentUpgradeableProxy(payable(proxy)).changeAdmin(proxyAdmin);
-
-        proxyOftWallets.push(proxy);
-    }
-
-    function postDeployChecks() internal virtual view override {
-        super.postDeployChecks();
-        require(proxyOftWallets.length == 1, "Did not deploy proxy OFT wallet");
     }
 }

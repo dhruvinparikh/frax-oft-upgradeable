@@ -27,31 +27,9 @@ contract DeployFraxOFTFraxtalHubTempo is DeployFraxOFTFraxtalHub {
     address public policyAdminImplementation;
     address public policyAdminProxy;
 
-    /// @notice Use --sender / --gcp instead of a raw private key.
-    modifier broadcastAs(uint256) override {
-        vm.startBroadcast();
-        _;
-        vm.stopBroadcast();
-    }
-
     /// @notice Use FraxOFTUpgradeableTempo instead of FraxOFTUpgradeable for non-frxUSD OFTs.
     function _createOFTImplementation() internal override returns (address) {
         return address(new FraxOFTUpgradeableTempo(broadcastConfig.endpoint));
-    }
-
-    /// @notice Use msg.sender as temporary proxy admin (GCS deployer broadcasts directly).
-    function _proxyTempAdmin() internal view override returns (address) {
-        return msg.sender;
-    }
-
-    /// @notice Skip wallet deployment on Tempo — not needed.
-    function deployFraxOFTWalletUpgradeableAndProxy() public override returns (address, address) {
-        // no-op
-    }
-
-    /// @notice Skip wallet check — wallet not deployed on Tempo.
-    function postDeployChecks() internal view override {
-        require(proxyOfts.length == NUM_OFTS, "Did not deploy all OFTs");
     }
 
     /// @notice Deploy FraxOFTMintableAdapterUpgradeableTIP20 for the existing frxUSD TIP20 token

@@ -34,9 +34,9 @@ contract BaseL0Script is L0Constants, Script {
     using stdJson for string;
     using Strings for uint256;
 
-    uint256 public oftDeployerPK = vm.envUint("PK_OFT_DEPLOYER");
-    uint256 public configDeployerPK = vm.envUint("PK_CONFIG_DEPLOYER");
-    uint256 public senderDeployerPK = vm.envUint("PK_SENDER_DEPLOYER");
+    uint256 public oftDeployerPK = vm.envOr("PK_OFT_DEPLOYER", uint256(0));
+    uint256 public configDeployerPK = vm.envOr("PK_CONFIG_DEPLOYER", uint256(0));
+    uint256 public senderDeployerPK = vm.envOr("PK_SENDER_DEPLOYER", uint256(0));
 
     L0Config[] public legacyConfigs;
     L0Config[] public proxyConfigs;
@@ -90,6 +90,7 @@ contract BaseL0Script is L0Constants, Script {
     }
 
     modifier broadcastAs(uint256 privateKey) virtual {
+        require(privateKey != 0, "Missing private key env var for broadcastAs");
         vm.startBroadcast(privateKey);
         _;
         vm.stopBroadcast();
