@@ -165,6 +165,7 @@ contract SendMockFrax is BaseL0Script {
         require(sourceOFT != address(0), "SendMockFrax: sourceOFT should not be zero");
         require(senderWallet != address(0), "SendMockFrax: senderWallet should not be zero");
         for (uint256 _i = start; _i < end; _i++) {
+            if (allConfigs[_i].eid != 30255) continue;
             if (broadcastConfig.chainid == allConfigs[_i].chainid) continue;
             if (allConfigs[_i].eid == 30151) continue;
             if (allConfigs[_i].eid == 30376) continue;

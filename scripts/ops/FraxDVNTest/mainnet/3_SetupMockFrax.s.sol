@@ -10,6 +10,9 @@ contract SetupMockFrax is DeployFraxOFTProtocol {
     using Strings for uint256;
     using stdJson for string;
 
+    // // TEMP: restrict setup to Fraxtal only.
+    // uint256 constant TEMP_TARGET_CHAIN_ID = 252;
+
     address constant MOCK_FRAX = 0x57558Cb8d6005DE0BAe8a2789d5EfaaE52dba5a8;
     address constant MOCK_FRAX_SOMNIA = 0x741F0d8Bde14140f62107FC60A0EE122B37D4630;
 
@@ -55,6 +58,26 @@ contract SetupMockFrax is DeployFraxOFTProtocol {
     function run() public override {
         setupSource();
     }
+
+    // function setupSource() public override broadcastAs(configDeployerPK) {
+    //     // TEMP: restrict setup to Fraxtal only.
+    //     L0Config memory allConfig = _findConfigByChainId(allConfigs, TEMP_TARGET_CHAIN_ID);
+    //     L0Config memory proxyConfig = _findConfigByChainId(proxyConfigs, TEMP_TARGET_CHAIN_ID);
+
+    //     L0Config[] memory targetAllConfigs = new L0Config[](1);
+    //     targetAllConfigs[0] = allConfig;
+
+    //     L0Config[] memory targetProxyConfigs = new L0Config[](1);
+    //     targetProxyConfigs[0] = proxyConfig;
+
+    //     setEvmEnforcedOptions({ _connectedOfts: proxyOfts, _configs: targetProxyConfigs });
+    //     setEvmPeers({ _connectedOfts: proxyOfts, _peerOfts: expectedProxyOfts, _configs: targetProxyConfigs });
+
+    //     setDVNs({ _connectedConfig: broadcastConfig, _connectedOfts: proxyOfts, _configs: targetAllConfigs });
+    //     setLibs({ _connectedConfig: broadcastConfig, _connectedOfts: proxyOfts, _configs: targetAllConfigs });
+
+    //     setPriviledgedRoles();
+    // }
 
     function setupNonEvms() public override {}
 
@@ -222,6 +245,16 @@ contract SetupMockFrax is DeployFraxOFTProtocol {
         // NOTE: a missing key will cause this decoding to revert
         string memory key = string.concat(".", _dstChainId.toString());
         dvnStack = abi.decode(jsonFile.parseRaw(key), (DvnStack));
+
+    }
+
+    function _findConfigByChainId(L0Config[] storage _configs, uint256 _chainId) internal view returns (L0Config memory config) {
+        for (uint256 i = 0; i < _configs.length; i++) {
+            if (_configs[i].chainid == _chainId) {
+                return _configs[i];
+            }
+        }
+        revert("target chain config not found");
     }
 
     function hasNoPeer(

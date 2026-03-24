@@ -505,3 +505,7 @@ worldchain : https://layerzeroscan.com/tx/0x0662527651bcc375230985fdb1da1bd736d6
 
 #### transaction using mockfrxUSD as gas token
 * transfer mockfrxUSD TIP20 : https://explore.mainnet.tempo.xyz/tx/0xd9bc059190d3a2491c39e94aecb2422580cbbb556774ff224873aea01fb3f605
+
+## Somnia
+* fraxtal : https://layerzeroscan.com/tx/0xe2a69f5ccb7b89504cab1d52588fc801e8d8148a639837d74323e0e85c99d24d
+* somnia : https://layerzeroscan.com/tx/0xfc2a65fc9a1d3a2abd76dac0a92231fb38f48d570913b900a99e070a16fbfc6d
