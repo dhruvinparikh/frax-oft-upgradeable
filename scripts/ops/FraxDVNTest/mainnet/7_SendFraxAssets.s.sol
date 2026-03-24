@@ -16,6 +16,7 @@ import { ITIP20 } from "@tempo/interfaces/ITIP20.sol";
 // katana : forge script scripts/ops/FraxDVNTest/mainnet/7_SendFraxAssets.s.sol --rpc-url https://rpc.katana.network --broadcast
 // aurora : forge script scripts/ops/FraxDVNTest/mainnet/7_SendFraxAssets.s.sol --rpc-url https://mainnet.aurora.dev --broadcast
 // scroll : forge script scripts/ops/FraxDVNTest/mainnet/7_SendFraxAssets.s.sol --rpc-url https://rpc.scroll.io --broadcast
+// sei : forge script scripts/ops/FraxDVNTest/mainnet/7_SendFraxAssets.s.sol --rpc-url https://sei.drpc.org --broadcast
 
 contract SendFraxAssets is BaseL0Script {
     SendParam[] public sendParams;
@@ -43,7 +44,7 @@ contract SendFraxAssets is BaseL0Script {
         sendParams.push(_sendParam);
         sendParams.push(_sendParam);
         sendParams.push(_sendParam);
-        simulateConfig.chainid = block.chainid; 
+        simulateConfig.chainid = block.chainid;
         _validateAndPopulateMainnetOfts();
 
         // if (broadcastConfig.eid == 30255) {
@@ -66,24 +67,24 @@ contract SendFraxAssets is BaseL0Script {
         //     _fee = IOFT(fraxtalFpiLockbox).quoteSend(_sendParam, false);
         //     _totalEthFee += _fee.nativeFee;
         // } else {
-            ofts.push(IOFT(connectedOfts[0]));
-            ofts.push(IOFT(connectedOfts[1]));
-            ofts.push(IOFT(connectedOfts[2]));
-            ofts.push(IOFT(connectedOfts[3]));
-            ofts.push(IOFT(connectedOfts[4]));
-            ofts.push(IOFT(connectedOfts[5]));
-            MessagingFee memory _fee = IOFT(connectedOfts[0]).quoteSend(_sendParam, false);
-            _totalEthFee += _fee.nativeFee;
-            _fee = IOFT(connectedOfts[1]).quoteSend(_sendParam, false);
-            _totalEthFee += _fee.nativeFee;
-            _fee = IOFT(connectedOfts[2]).quoteSend(_sendParam, false);
-            _totalEthFee += _fee.nativeFee;
-            _fee = IOFT(connectedOfts[3]).quoteSend(_sendParam, false);
-            _totalEthFee += _fee.nativeFee;
-            _fee = IOFT(connectedOfts[4]).quoteSend(_sendParam, false);
-            _totalEthFee += _fee.nativeFee;
-            _fee = IOFT(connectedOfts[5]).quoteSend(_sendParam, false);
-            _totalEthFee += _fee.nativeFee;
+        ofts.push(IOFT(connectedOfts[0]));
+        ofts.push(IOFT(connectedOfts[1]));
+        ofts.push(IOFT(connectedOfts[2]));
+        ofts.push(IOFT(connectedOfts[3]));
+        ofts.push(IOFT(connectedOfts[4]));
+        ofts.push(IOFT(connectedOfts[5]));
+        MessagingFee memory _fee = IOFT(connectedOfts[0]).quoteSend(_sendParam, false);
+        _totalEthFee += _fee.nativeFee;
+        _fee = IOFT(connectedOfts[1]).quoteSend(_sendParam, false);
+        _totalEthFee += _fee.nativeFee;
+        _fee = IOFT(connectedOfts[2]).quoteSend(_sendParam, false);
+        _totalEthFee += _fee.nativeFee;
+        _fee = IOFT(connectedOfts[3]).quoteSend(_sendParam, false);
+        _totalEthFee += _fee.nativeFee;
+        _fee = IOFT(connectedOfts[4]).quoteSend(_sendParam, false);
+        _totalEthFee += _fee.nativeFee;
+        _fee = IOFT(connectedOfts[5]).quoteSend(_sendParam, false);
+        _totalEthFee += _fee.nativeFee;
         // }
 
         refundAddresses.push(senderWallet);
