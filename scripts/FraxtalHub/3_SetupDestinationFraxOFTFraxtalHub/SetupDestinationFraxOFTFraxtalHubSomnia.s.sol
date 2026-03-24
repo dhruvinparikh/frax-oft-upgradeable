@@ -21,6 +21,25 @@ contract SetupDestinationFraxOFTFraxtalHubSomnia is SetupDestinationFraxOFTFraxt
         proxyOfts.push(fpiOft);
     }
 
+    function run() public virtual override {
+        for (uint256 i; i < proxyConfigs.length; i++) {
+            // Set up destinations for Fraxtal lockboxes only
+            if (proxyConfigs[i].chainid == 252 || proxyConfigs[i].chainid == broadcastConfig.chainid) {
+                tempConfigs.push(proxyConfigs[i]);
+            }
+        }
+
+        require(tempConfigs.length == 2, "Incorrect tempConfigs array");
+
+        delete proxyConfigs;
+        for (uint256 i = 0; i < tempConfigs.length; i++) {
+            proxyConfigs.push(tempConfigs[i]);
+        }
+        delete tempConfigs;
+
+        setupDestinations();
+    }
+
     function getFileExtension() internal pure override returns (string memory) {
         return "";
     }
