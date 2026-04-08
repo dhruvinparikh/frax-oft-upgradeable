@@ -25,3 +25,8 @@
 * fraxtal : https://layerzeroscan.com/tx/0x571a48f4b0fc4a406d79c465f2589040c3bafc658887e5a768a9060181e59205
 * tempo (gas token is pathUSD) : https://layerzeroscan.com/tx/0xfca62446152d8084e6c90dbb53f9cfabbc5def4e82198b61a978d34b980add37
 * tempo (gas token is frxUSD TIP20) : https://layerzeroscan.com/tx/0x9081c1b44e9a8cc81648e242ede9868eb3c19e083546642332804d0039c488bf
+
+### Somnia
+* fraxtal ; https://layerzeroscan.com/tx/0xbaf9be736674326a02b06aff62da434f54551eb62d54fb417140d344a04d0b66
+
+* somnia : https://layerzeroscan.com/tx/0x00f61cabc31c9a35fd2e75e8149ace9dec856091216e8622057ec3f0e8a1441a
