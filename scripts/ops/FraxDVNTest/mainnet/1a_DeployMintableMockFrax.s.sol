@@ -53,6 +53,11 @@ contract DeployMintableMockFrax is DeployFraxOFTProtocol {
                 // Solana (30168), Movement (30325), Aptos (30108),  Blast (30243)
                 if (eid == 30168 || eid == 30325 || eid == 30108 || eid == 30243) continue;
             }
+            if (broadcastConfig.eid == 30380) {
+                // L0 team has not setup defaultSendLibrary and defaultReceiveLibrary on somnia for
+                // Katana (30375), Solana (30168), Movement (30325)
+                if (eid == 30375 || eid == 30168 || eid == 30325) continue;
+            }
             require(
                 IMessageLibManager(broadcastConfig.endpoint).isSupportedEid(uint32(allConfigs[e].eid)),
                 "L0 team required to setup `defaultSendLibrary` and `defaultReceiveLibrary` for EID"

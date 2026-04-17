@@ -296,6 +296,7 @@ contract DeployFraxOFTProtocol is SetDVNs, BaseL0Script {
             "OFT owner incorrect"
         );
         console.log(string.concat("  Deployed ", _expectedSymbol, " proxy"));
+        console.log("    Proxy address:", proxy);
     }
 
     /// @notice Transfer delegate + ownership of all OFTs and the ProxyAdmin to the
@@ -506,6 +507,10 @@ contract DeployFraxOFTProtocol is SetDVNs, BaseL0Script {
         bytes memory tempoOptionsTypeOne = OptionsBuilder.newOptions().addExecutorLzReceiveOption(2_000_000, 0);
         bytes memory tempoOptionsTypeTwo = OptionsBuilder.newOptions().addExecutorLzReceiveOption(2_500_000, 0);
 
+        // Somnia-specific enforced options (higher gas)
+        bytes memory somniaOptionsTypeOne = OptionsBuilder.newOptions().addExecutorLzReceiveOption(1_000_000, 0);
+        bytes memory somniaOptionsTypeTwo = OptionsBuilder.newOptions().addExecutorLzReceiveOption(1_500_000, 0);
+
         // Build enforced options for each chain
         for (uint256 c=0; c<_configs.length; c++) {            
             // cannot set enforced options to self
@@ -515,6 +520,9 @@ contract DeployFraxOFTProtocol is SetDVNs, BaseL0Script {
             if (_configs[c].eid == 30410) {
                 enforcedOptionParams.push(EnforcedOptionParam(uint32(_configs[c].eid), 1, tempoOptionsTypeOne));
                 enforcedOptionParams.push(EnforcedOptionParam(uint32(_configs[c].eid), 2, tempoOptionsTypeTwo));
+            } else if (_configs[c].eid == 30380) {
+                enforcedOptionParams.push(EnforcedOptionParam(uint32(_configs[c].eid), 1, somniaOptionsTypeOne));
+                enforcedOptionParams.push(EnforcedOptionParam(uint32(_configs[c].eid), 2, somniaOptionsTypeTwo));
             } else {
                 enforcedOptionParams.push(EnforcedOptionParam(uint32(_configs[c].eid), 1, _optionsTypeOne));
                 enforcedOptionParams.push(EnforcedOptionParam(uint32(_configs[c].eid), 2, _optionsTypeTwo));

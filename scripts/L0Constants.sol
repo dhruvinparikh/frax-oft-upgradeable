@@ -30,7 +30,7 @@ contract L0Constants {
     address[] public scrollProxyOfts;
     address[] public monadProxyOfts;
     address[] public zkEraProxyOfts;
-    address[] public tempoProxyOfts;
+    address[] public fullDeterministicProxyOfts;
     address[] public fraxtalLockboxes;
     address[] public ethLockboxes;
     address[] public connectedOfts;
@@ -83,12 +83,12 @@ contract L0Constants {
     address public zkEraFraxOft = 0xAf01aE13Fb67AD2bb2D76f29A83961069a5F245F;
     address public zkEraFpiOft = 0x580F2ee1476eDF4B1760bd68f6AaBaD57dec420E;
 
-    address public tempoFrxUsdOft = 0x00000000D61733e7A393A10A5B48c311AbE8f1E5;
-    address public tempoSFrxUsdOft = 0x00000000fD8C4B8A413A06821456801295921a71;
-    address public tempoFrxEthOft = 0x000000008c3930dCA540bB9B3A5D0ee78FcA9A4c;
-    address public tempoSFrxEthOft = 0x00000000883279097A49dB1f2af954EAd0C77E3c;
-    address public tempoFraxOft = 0x00000000E9CE0f293D1Ce552768b187eBA8a56D4;
-    address public tempoFpiOft = 0x00000000bC4aEF4bA6363a437455Cb1af19e2aEb;
+    address public fullDeterministicFrxUsdOft = 0x00000000D61733e7A393A10A5B48c311AbE8f1E5;
+    address public fullDeterministicSFrxUsdOft = 0x00000000fD8C4B8A413A06821456801295921a71;
+    address public fullDeterministicFrxEthOft = 0x000000008c3930dCA540bB9B3A5D0ee78FcA9A4c;
+    address public fullDeterministicSFrxEthOft = 0x00000000883279097A49dB1f2af954EAd0C77E3c;
+    address public fullDeterministicFraxOft = 0x00000000E9CE0f293D1Ce552768b187eBA8a56D4;
+    address public fullDeterministicFpiOft = 0x00000000bC4aEF4bA6363a437455Cb1af19e2aEb;
 
     address public fraxtalFrxUsdLockbox = 0x96A394058E2b84A89bac9667B19661Ed003cF5D4;
     address public fraxtalSFrxUsdLockbox = 0x88Aa7854D3b2dAA5e37E7Ce73A1F39669623a361;
@@ -169,12 +169,12 @@ contract L0Constants {
         zkEraProxyOfts.push(zkEraFrxEthOft);
         zkEraProxyOfts.push(zkEraFpiOft);
 
-        tempoProxyOfts.push(tempoFraxOft);
-        tempoProxyOfts.push(tempoSFrxUsdOft);
-        tempoProxyOfts.push(tempoSFrxEthOft);
-        tempoProxyOfts.push(tempoFrxUsdOft);
-        tempoProxyOfts.push(tempoFrxEthOft);
-        tempoProxyOfts.push(tempoFpiOft);
+        fullDeterministicProxyOfts.push(fullDeterministicFraxOft);
+        fullDeterministicProxyOfts.push(fullDeterministicSFrxUsdOft);
+        fullDeterministicProxyOfts.push(fullDeterministicSFrxEthOft);
+        fullDeterministicProxyOfts.push(fullDeterministicFrxUsdOft);
+        fullDeterministicProxyOfts.push(fullDeterministicFrxEthOft);
+        fullDeterministicProxyOfts.push(fullDeterministicFpiOft);
 
         fraxtalLockboxes.push(fraxtalFraxLockbox);
         fraxtalLockboxes.push(fraxtalSFrxUsdLockbox);
@@ -220,7 +220,8 @@ contract L0Constants {
         _registerChain(143, monadProxyOfts);
         _registerChain(2741, zkEraProxyOfts);
         _registerChain(324, zkEraProxyOfts); // ZKsync Era shares addresses with 2741
-        _registerChain(4217, tempoProxyOfts);
+        _registerChain(4217, fullDeterministicProxyOfts);
+        _registerChain(5031, fullDeterministicProxyOfts);
     }
 
     /// @notice Copy a per-chain address array into the chainPeerAddresses mapping.

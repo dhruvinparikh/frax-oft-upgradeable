@@ -84,6 +84,15 @@ contract SendMockFrax is BaseL0Script {
                     allConfigs[_i].eid == 30243
                 ) continue;
             }
+            if (broadcastConfig.eid == 30380) {
+                // L0 team has not setup defaultSendLibrary and defaultReceiveLibrary on somnia for
+                // Katana (30375), Solana (30168), Movement (30325)
+                if (
+                    allConfigs[_i].eid == 30375 ||
+                    allConfigs[_i].eid == 30168 ||
+                    allConfigs[_i].eid == 30325
+                ) continue;
+            }
             if (broadcastConfig.chainid == allConfigs[_i].chainid) {
                 // 252,4217
                 sourceOFT = mockfrxUSD;
@@ -143,6 +152,15 @@ contract SendMockFrax is BaseL0Script {
                     allConfigs[_i].eid == 30243
                 ) continue;
                 StdPrecompiles.TIP_FEE_MANAGER.setUserToken(gasToken);
+            }
+            if (broadcastConfig.eid == 30380) {
+                // L0 team has not setup defaultSendLibrary and defaultReceiveLibrary on somnia for
+                // Katana (30375), Solana (30168), Movement (30325)
+                if (
+                    allConfigs[_i].eid == 30375 ||
+                    allConfigs[_i].eid == 30168 ||
+                    allConfigs[_i].eid == 30325
+                ) continue;
             }
             bytes32 recipientWallet;
             if (allConfigs[_i].eid == 30168) {

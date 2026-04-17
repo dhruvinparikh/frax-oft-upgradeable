@@ -10,6 +10,12 @@ contract SetupMockFrax is DeployFraxOFTProtocol {
     using Strings for uint256;
     using stdJson for string;
 
+    // // TEMP: restrict setup to Fraxtal only.
+    // uint256 constant TEMP_TARGET_CHAIN_ID = 252;
+
+    address constant MOCK_FRAX = 0x57558Cb8d6005DE0BAe8a2789d5EfaaE52dba5a8;
+    address constant MOCK_FRAX_SOMNIA = 0x741F0d8Bde14140f62107FC60A0EE122B37D4630;
+
     function loadJsonConfig() public override {
         delete expectedProxyOfts;
 
@@ -35,18 +41,43 @@ contract SetupMockFrax is DeployFraxOFTProtocol {
             connectedOfts[0] = 0xA057D8D4Fc86a62801CE363C169b0A8d192F6cEE;
             proxyOfts.push(0xA057D8D4Fc86a62801CE363C169b0A8d192F6cEE);
             expectedProxyOfts.push(0xA057D8D4Fc86a62801CE363C169b0A8d192F6cEE);
+        } else if (broadcastConfig.chainid == 5031) {
+            // somnia, eid = 30380
+            connectedOfts[0] = MOCK_FRAX_SOMNIA;
+            proxyOfts.push(MOCK_FRAX_SOMNIA);
+            expectedProxyOfts.push(MOCK_FRAX_SOMNIA);
         } else {
             // 1,81457,8453,34443,1329,252,196,146,57073,42161,10,137,43114,56,1101,80094,480,130,98866,747474,
             // 534352, 999, 143, 988, 4217
-            connectedOfts[0] = 0x57558Cb8d6005DE0BAe8a2789d5EfaaE52dba5a8;
-            proxyOfts.push(0x57558Cb8d6005DE0BAe8a2789d5EfaaE52dba5a8);
-            expectedProxyOfts.push(0x57558Cb8d6005DE0BAe8a2789d5EfaaE52dba5a8);
+            connectedOfts[0] = MOCK_FRAX;
+            proxyOfts.push(MOCK_FRAX);
+            expectedProxyOfts.push(MOCK_FRAX);
         }
     }
 
     function run() public override {
         setupSource();
     }
+
+    // function setupSource() public override broadcastAs(configDeployerPK) {
+    //     // TEMP: restrict setup to Fraxtal only.
+    //     L0Config memory allConfig = _findConfigByChainId(allConfigs, TEMP_TARGET_CHAIN_ID);
+    //     L0Config memory proxyConfig = _findConfigByChainId(proxyConfigs, TEMP_TARGET_CHAIN_ID);
+
+    //     L0Config[] memory targetAllConfigs = new L0Config[](1);
+    //     targetAllConfigs[0] = allConfig;
+
+    //     L0Config[] memory targetProxyConfigs = new L0Config[](1);
+    //     targetProxyConfigs[0] = proxyConfig;
+
+    //     setEvmEnforcedOptions({ _connectedOfts: proxyOfts, _configs: targetProxyConfigs });
+    //     setEvmPeers({ _connectedOfts: proxyOfts, _peerOfts: expectedProxyOfts, _configs: targetProxyConfigs });
+
+    //     setDVNs({ _connectedConfig: broadcastConfig, _connectedOfts: proxyOfts, _configs: targetAllConfigs });
+    //     setLibs({ _connectedConfig: broadcastConfig, _connectedOfts: proxyOfts, _configs: targetAllConfigs });
+
+    //     setPriviledgedRoles();
+    // }
 
     function setupNonEvms() public override {}
 
@@ -69,10 +100,13 @@ contract SetupMockFrax is DeployFraxOFTProtocol {
         } else if (_chainid == 1313161554) {
             // aurora
             peer = 0xA057D8D4Fc86a62801CE363C169b0A8d192F6cEE;
+        } else if (_chainid == 5031) {
+            // somnia
+            peer = MOCK_FRAX_SOMNIA;
         } else {
             // 1,81457,8453,34443,1329,252,196,146,57073,42161,10,137,43114,56,1101,80094,480,130,98866,747474,
             // 534352, 999, 143, 988, 4217
-            peer = 0x57558Cb8d6005DE0BAe8a2789d5EfaaE52dba5a8;
+            peer = MOCK_FRAX;
         }
     }
 
@@ -118,6 +152,11 @@ contract SetupMockFrax is DeployFraxOFTProtocol {
             // Solana (30168), Movement (30325), Aptos (30108), Blast (30243)
             if (_config.eid == 30168 || _config.eid == 30325 || _config.eid == 30108 || _config.eid == 30243) return;
         }
+        if (broadcastConfig.eid == 30380) {
+                // L0 team has not setup defaultSendLibrary and defaultReceiveLibrary on somnia for
+                // Katana (30375), Solana (30168), Movement (30325)
+                if (_config.eid == 30375 || _config.eid == 30168 || _config.eid == 30325) return;
+            }
         // TODO : only set library if it is not same as config
         super.setLib(_connectedConfig, _connectedOft, _config);
     }
@@ -168,6 +207,13 @@ contract SetupMockFrax is DeployFraxOFTProtocol {
                 _dstConfig.eid == 30168 || _dstConfig.eid == 30325 || _dstConfig.eid == 30108 || _dstConfig.eid == 30243
             ) return;
         }
+        if (_srcConfig.eid == 30380) {
+            // L0 team has not setup defaultSendLibrary and defaultReceiveLibrary on tempo for
+            // Katana (30375), Solana (30168), Movement (30325)
+            if (
+                _dstConfig.eid == 30375 || _dstConfig.eid == 30168 || _dstConfig.eid == 30325
+            ) return;
+        }
         super.setConfig(_srcConfig, _dstConfig, _lib, _oft);
     }
 
@@ -199,6 +245,16 @@ contract SetupMockFrax is DeployFraxOFTProtocol {
         // NOTE: a missing key will cause this decoding to revert
         string memory key = string.concat(".", _dstChainId.toString());
         dvnStack = abi.decode(jsonFile.parseRaw(key), (DvnStack));
+
+    }
+
+    function _findConfigByChainId(L0Config[] storage _configs, uint256 _chainId) internal view returns (L0Config memory config) {
+        for (uint256 i = 0; i < _configs.length; i++) {
+            if (_configs[i].chainid == _chainId) {
+                return _configs[i];
+            }
+        }
+        revert("target chain config not found");
     }
 
     function hasNoPeer(
