@@ -13,7 +13,7 @@ const dvnConfigPath = "config/dvn"
 const chainIds = [
     1, 252
 ] as const;
-const dvnKeys = ['bcwGroup', 'frax', 'horizen', 'lz', 'nethermind', 'stargate'] as const;
+const dvnKeys = ['bcwGroup', 'canary', 'frax', 'horizen', 'lz', 'nethermind', 'stargate'] as const;
 
 const solanaContract: OmniPointHardhat = {
     eid: EndpointId.SOLANA_V2_MAINNET,
@@ -108,6 +108,9 @@ export default async function () {
                         break;
                     case "nethermind":
                         dvnName = "Nethermind"
+                        break;
+                    case "canary":
+                        dvnName = "Canary"
                         break;
                     case "stargate":
                         dvnName = "Stargate"
