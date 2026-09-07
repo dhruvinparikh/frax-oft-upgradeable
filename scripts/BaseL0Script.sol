@@ -323,8 +323,10 @@ contract BaseL0Script is L0Constants, Script {
         else revert("_setOftForToken: unknown token");
     }
 
-    /// @dev Symbol doubles as the CREATE2 salt key - it must keep matching the historical
-    ///      value or deterministic addresses would move.
+    /// @dev For every token routed through deployFraxOFTUpgradeableAndProxy(), the symbol
+    ///      doubles as the CREATE2 salt key and must keep matching the historical value or
+    ///      the deterministic address would move. frxUSD is the exception: it deploys via
+    ///      deployFrxUsdOFTUpgradeableAndProxy(), which passes its own salt string.
     function _tokenMeta(Token _token) internal pure returns (string memory name_, string memory symbol_) {
         if (_token == Token.WFRAX)   return ("Wrapped Frax", "WFRAX");
         if (_token == Token.SFRXUSD) return ("Staked Frax USD", "sfrxUSD");

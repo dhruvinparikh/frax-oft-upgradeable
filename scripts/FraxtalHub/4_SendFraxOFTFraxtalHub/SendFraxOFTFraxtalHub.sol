@@ -157,6 +157,9 @@ abstract contract SendFraxOFTFraxtalHub is DeployFraxOFTProtocol {
             sendParams.push(_sendParam);
             refundAddresses.push(senderWallet);
         }
+        /// @dev Compact index 3 is frxUSD only while no slot before Token.FRXUSD is retired.
+        ///      The `ofts` pushes below are hardcoded in the same order, so retiring an
+        ///      earlier slot means editing both together.
         // Replace frxUSD entry (index 3) with scaled send params
         sendParams[3] = _frxUsdSendParam;
 

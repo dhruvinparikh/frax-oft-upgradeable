@@ -123,7 +123,13 @@ contract DeployFraxOFTProtocol is SetDVNs, BaseL0Script {
     }
 
     function setupNonEvms() public virtual {
-        require(proxyOfts.length == activeTokens.length, "Error: non-evm setup will be incorrect");
+        /// @dev nonEvmPeersArrays is Token-indexed and setNonEvmPeers walks proxyOfts by
+        ///      position, so proxyOfts must be a slot-aligned prefix: every slot (chains
+        ///      predating a retirement) or just the active ones.
+        require(
+            proxyOfts.length == NUM_OFTS || proxyOfts.length == activeTokens.length,
+            "Error: non-evm setup will be incorrect"
+        );
 
         setSolanaEnforcedOptions({
             _connectedOfts: proxyOfts

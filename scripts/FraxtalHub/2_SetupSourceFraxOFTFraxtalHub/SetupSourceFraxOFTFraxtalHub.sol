@@ -31,15 +31,18 @@ abstract contract SetupSourceFraxOFTFraxtalHub is DeployFraxOFTProtocol {
 
     function setupNonEvms() public virtual override {}
 
-    /// @dev New chains can manage fewer tokens than the canonical NUM_OFTS slots.
-    ///      Keep peer lookup on the canonical deterministic slot array while only
-    ///      configuring the OFTs actually deployed on this chain.
+    /// @dev The base pairs proxyOfts with the NUM_OFTS-wide expectedProxyOfts, which breaks
+    ///      setEvmPeers' equal-length require for a chain that does not carry every slot.
+    ///      Pair proxyOfts with itself: `_peerOfts[o]` is only the token IDENTITY handed to
+    ///      determinePeer(), and both hub targets (252 and the chain itself) are registered
+    ///      in L0Constants, so the real peer always comes from the canonical registry and
+    ///      the NUM_OFTS-wide fallback array is never reached.
     function setupEvms() public virtual override {
         setEvmEnforcedOptions({ _connectedOfts: proxyOfts, _configs: proxyConfigs });
 
         setEvmPeers({
             _connectedOfts: proxyOfts,
-            _peerOfts: fullDeterministicProxyOftsActive,
+            _peerOfts: proxyOfts,
             _configs: proxyConfigs
         });
     }

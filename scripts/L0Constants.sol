@@ -31,9 +31,11 @@ contract L0Constants {
     address[] public monadProxyOfts;
     address[] public zkEraProxyOfts;
     address[] public fullDeterministicProxyOfts;
-    /// @dev Deterministic addresses with retired slots zeroed; peer array for chains
-    ///      onboarded after a retirement. Derived from `activeTokens` in the constructor.
-    address[] public fullDeterministicProxyOftsActive;
+    /// @dev Peer array for the cohort onboarded after FPI was retired (Robinhood onward):
+    ///      the deterministic addresses with the FPI slot zeroed. This is a HISTORICAL
+    ///      record of what that cohort deployed, so it must NOT track future retirements -
+    ///      a later retirement does not remove a token those chains already have.
+    address[] public fullDeterministicProxyOftsPostFpi;
 
     /// @dev Tokens deployed on newly onboarded chains, in slot order. Declared in the
     ///      constructor; retired tokens are simply absent.
@@ -179,11 +181,11 @@ contract L0Constants {
         fullDeterministicProxyOfts.push(fullDeterministicFrxEthOft);
         fullDeterministicProxyOfts.push(fullDeterministicFpiOft);
 
-        /// @dev Stays NUM_OFTS wide (peer arrays are Token-indexed); retired slots are
-        ///      zero so determinePeer() reverts if anything tries to wire a retired token.
+        /// @dev Stays NUM_OFTS wide (peer arrays are Token-indexed); the FPI slot is zero
+        ///      so determinePeer() reverts if anything tries to wire FPI to this cohort.
         for (uint256 i = 0; i < NUM_OFTS; i++) {
-            fullDeterministicProxyOftsActive.push(
-                isTokenActive(Token(i)) ? fullDeterministicProxyOfts[i] : address(0)
+            fullDeterministicProxyOftsPostFpi.push(
+                Token(i) == Token.FPI ? address(0) : fullDeterministicProxyOfts[i]
             );
         }
 
@@ -231,18 +233,11 @@ contract L0Constants {
         _registerChain(2741, zkEraProxyOfts);
         _registerChain(324, zkEraProxyOfts); // ZKsync Era shares addresses with 2741
         _registerChain(4217, fullDeterministicProxyOfts);
-        _registerChain(4663, fullDeterministicProxyOftsActive); // onboarded after FPI retirement
+        _registerChain(4663, fullDeterministicProxyOftsPostFpi); // onboarded after FPI retirement
         _registerChain(5031, fullDeterministicProxyOfts);
 
     }
 
-    /// @notice Whether a token is still deployed on newly onboarded chains.
-    function isTokenActive(Token _token) public view returns (bool) {
-        for (uint256 i = 0; i < activeTokens.length; i++) {
-            if (activeTokens[i] == _token) return true;
-        }
-        return false;
-    }
 
     /// @notice Copy a per-chain address array into the chainPeerAddresses mapping.
     function _registerChain(uint256 _chainid, address[] storage _peers) internal {
