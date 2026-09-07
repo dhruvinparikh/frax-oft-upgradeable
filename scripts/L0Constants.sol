@@ -15,11 +15,12 @@ struct L0Config {
     address sendLib302;
 }
 
-/// @dev Number of OFT tokens in the protocol. Used instead of magic number 6.
+/// @dev Width of every per-chain peer array — the number of `Token` slots ever defined,
+///      active or retired. For what a new chain receives, use `activeTokens`.
 uint256 constant NUM_OFTS = 6;
 
-/// @dev Canonical token identifiers, indexed 0..5 to match array ordering across all
-///      per-chain address arrays (proxyOfts, lockboxes, etc.).
+/// @dev Canonical token slots. APPEND-ONLY — peer arrays are indexed by this enum and
+///      deployed chains keep the tokens they have, so retire via `activeTokens` below.
 enum Token { WFRAX, SFRXUSD, SFRXETH, FRXUSD, FRXETH, FPI }
 
 contract L0Constants {
@@ -30,6 +31,13 @@ contract L0Constants {
     address[] public monadProxyOfts;
     address[] public zkEraProxyOfts;
     address[] public fullDeterministicProxyOfts;
+    /// @dev Deterministic addresses with retired slots zeroed; peer array for chains
+    ///      onboarded after a retirement. Derived from `activeTokens` in the constructor.
+    address[] public fullDeterministicProxyOftsActive;
+
+    /// @dev Tokens deployed on newly onboarded chains, in slot order. Declared in the
+    ///      constructor; retired tokens are simply absent.
+    Token[] public activeTokens;
     address[] public fraxtalLockboxes;
     address[] public ethLockboxes;
     address[] public connectedOfts;
@@ -117,6 +125,16 @@ contract L0Constants {
     address public fraxtalTestnetFrxUsdLockbox = 0x7C9DF6704Ec6E18c5E656A2db542c23ab73CB24d;
 
     constructor() {
+        /// @dev Active token registry - the single declaration of what a new chain gets.
+        ///      Retire a token: delete its line (chains that already have it keep it).
+        ///      Activate one: append a `Token` slot, widen the per-chain arrays, add a line.
+        activeTokens.push(Token.WFRAX);
+        activeTokens.push(Token.SFRXUSD);
+        activeTokens.push(Token.SFRXETH);
+        activeTokens.push(Token.FRXUSD);
+        activeTokens.push(Token.FRXETH);
+        // Token.FPI retired 2026-09
+
         // array of semi-pre-determined upgradeable OFTs
         /// @dev: this array maintains the same token order as proxyOfts
         expectedProxyOfts.push(proxyFraxOft);
@@ -160,6 +178,14 @@ contract L0Constants {
         fullDeterministicProxyOfts.push(fullDeterministicFrxUsdOft);
         fullDeterministicProxyOfts.push(fullDeterministicFrxEthOft);
         fullDeterministicProxyOfts.push(fullDeterministicFpiOft);
+
+        /// @dev Stays NUM_OFTS wide (peer arrays are Token-indexed); retired slots are
+        ///      zero so determinePeer() reverts if anything tries to wire a retired token.
+        for (uint256 i = 0; i < NUM_OFTS; i++) {
+            fullDeterministicProxyOftsActive.push(
+                isTokenActive(Token(i)) ? fullDeterministicProxyOfts[i] : address(0)
+            );
+        }
 
         fraxtalLockboxes.push(fraxtalFraxLockbox);
         fraxtalLockboxes.push(fraxtalSFrxUsdLockbox);
@@ -205,12 +231,24 @@ contract L0Constants {
         _registerChain(2741, zkEraProxyOfts);
         _registerChain(324, zkEraProxyOfts); // ZKsync Era shares addresses with 2741
         _registerChain(4217, fullDeterministicProxyOfts);
-        _registerChain(4663, fullDeterministicProxyOfts);
+        _registerChain(4663, fullDeterministicProxyOftsActive); // onboarded after FPI retirement
         _registerChain(5031, fullDeterministicProxyOfts);
+
+    }
+
+    /// @notice Whether a token is still deployed on newly onboarded chains.
+    function isTokenActive(Token _token) public view returns (bool) {
+        for (uint256 i = 0; i < activeTokens.length; i++) {
+            if (activeTokens[i] == _token) return true;
+        }
+        return false;
     }
 
     /// @notice Copy a per-chain address array into the chainPeerAddresses mapping.
     function _registerChain(uint256 _chainid, address[] storage _peers) internal {
+        /// @dev Peer arrays are indexed by `Token`, so every one must span all slots -
+        ///      absent tokens are address(0), never a shortened array.
+        require(_peers.length == NUM_OFTS, "L0Constants: peer array must be NUM_OFTS wide");
         for (uint256 i = 0; i < _peers.length; i++) {
             chainPeerAddresses[_chainid].push(_peers[i]);
         }

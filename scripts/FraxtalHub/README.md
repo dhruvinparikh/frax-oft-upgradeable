@@ -2,6 +2,11 @@
 
 > Note : Use this scripts for fraxtal hub OFTs only
 
+> Note : **FPI is deprecated.** New chain expansions deploy and wire 5 active OFTs —
+> WFRAX, sfrxUSD, sfrxETH, frxUSD, frxETH. Do **not** set `fpiOft` in a new chain's child scripts and
+> register the chain with `fullDeterministicProxyOftsActive`. Chains onboarded before the deprecation
+> keep their FPI OFT and their scripts still manage it — the shared bases branch on `_managesToken(Token.FPI)`.
+
 ### Deploy OFTs
 
 ```

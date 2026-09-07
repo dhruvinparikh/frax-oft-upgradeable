@@ -31,6 +31,19 @@ abstract contract SetupSourceFraxOFTFraxtalHub is DeployFraxOFTProtocol {
 
     function setupNonEvms() public virtual override {}
 
+    /// @dev New chains can manage fewer tokens than the canonical NUM_OFTS slots.
+    ///      Keep peer lookup on the canonical deterministic slot array while only
+    ///      configuring the OFTs actually deployed on this chain.
+    function setupEvms() public virtual override {
+        setEvmEnforcedOptions({ _connectedOfts: proxyOfts, _configs: proxyConfigs });
+
+        setEvmPeers({
+            _connectedOfts: proxyOfts,
+            _peerOfts: fullDeterministicProxyOftsActive,
+            _configs: proxyConfigs
+        });
+    }
+
     function setupSource() public virtual override broadcastAs(configDeployerPK) {
         /// @dev set enforced options / peers separately
         setupEvms();
@@ -49,7 +62,9 @@ abstract contract SetupSourceFraxOFTFraxtalHub is DeployFraxOFTProtocol {
         require(isStringEqual(IERC20Metadata(sfrxEthOft).symbol(), "sfrxETH"), "sfrxEthOft != sfrxETH");
         _validateFrxUsdAddr();
         require(isStringEqual(IERC20Metadata(frxEthOft).symbol(), "frxETH"), "frxEthOft != frxETH");
-        require(isStringEqual(IERC20Metadata(fpiOft).symbol(), "FPI"), "fpiOft != FPI");
+        if (_managesToken(Token.FPI)) {
+            require(isStringEqual(IERC20Metadata(fpiOft).symbol(), "FPI"), "fpiOft != FPI");
+        }
     }
 
     /// @notice Validates frxUSD OFT symbol. Override for adapter-based deployments (e.g. Tempo TIP20).

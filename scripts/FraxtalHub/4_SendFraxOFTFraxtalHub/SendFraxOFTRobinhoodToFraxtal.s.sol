@@ -12,7 +12,6 @@ contract SendFraxOFTRobinhoodToFraxtal is SendFraxOFTFraxtalHub {
         sfrxEthOft = 0x00000000883279097A49dB1f2af954EAd0C77E3c;
         frxUsdOft = 0x00000000D61733e7A393A10A5B48c311AbE8f1E5;
         frxEthOft = 0x000000008c3930dCA540bB9B3A5D0ee78FcA9A4c;
-        fpiOft = 0x00000000bC4aEF4bA6363a437455Cb1af19e2aEb;
 
         srcEid = 30416;
         dstEid = 30255;

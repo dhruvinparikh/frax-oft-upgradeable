@@ -123,7 +123,7 @@ contract DeployFraxOFTProtocol is SetDVNs, BaseL0Script {
     }
 
     function setupNonEvms() public virtual {
-        require(proxyOfts.length == NUM_OFTS, "Error: non-evm setup will be incorrect");
+        require(proxyOfts.length == activeTokens.length, "Error: non-evm setup will be incorrect");
 
         setSolanaEnforcedOptions({
             _connectedOfts: proxyOfts
@@ -146,8 +146,10 @@ contract DeployFraxOFTProtocol is SetDVNs, BaseL0Script {
         }
     }
 
+    /// @dev A fresh deployment yields exactly the active tokens; retired ones are never
+    ///      redeployed. See `activeTokens` in L0Constants.
     function postDeployChecks() internal virtual view {
-        require(proxyOfts.length == NUM_OFTS, "Did not deploy all OFTs");
+        require(proxyOfts.length == activeTokens.length, "Did not deploy all OFTs");
     }
 
     function deployFraxOFTUpgradeablesAndProxies() public virtual broadcastAs(oftDeployerPK) {
@@ -166,39 +168,22 @@ contract DeployFraxOFTProtocol is SetDVNs, BaseL0Script {
             _initCode: type(ImplementationMock).creationCode
         });
 
-        // / @dev: follows deployment order of legacy OFTs found at https://etherscan.io/address/0xded884435f2db0169010b3c325e733df0038e51d
-        // Deploy WFRAX
-        (,wfraxOft) = deployFraxOFTUpgradeableAndProxy({
-            _name: "Wrapped Frax",
-            _symbol: "WFRAX"
-        });
+        /// @dev Deploys exactly `activeTokens`, in slot order - which matches the legacy
+        ///      order at https://etherscan.io/address/0xded884435f2db0169010b3c325e733df0038e51d
+        ///      Retiring or activating a token needs no edit here.
+        for (uint256 i = 0; i < activeTokens.length; i++) {
+            Token token = activeTokens[i];
+            (string memory name_, string memory symbol_) = _tokenMeta(token);
 
-        // Deploy sfrxUSD
-        (,sfrxUsdOft) = deployFraxOFTUpgradeableAndProxy({
-            _name: "Staked Frax USD",
-            _symbol: "sfrxUSD"
-        });
-
-        // Deploy sfrxETH
-        (,sfrxEthOft) = deployFraxOFTUpgradeableAndProxy({
-            _name: "Staked Frax Ether",
-            _symbol: "sfrxETH"
-        });
-
-        // Deploy frxUSD
-        (,frxUsdOft) = deployFrxUsdOFTUpgradeableAndProxy();
-
-        // Deploy frxETH
-        (,frxEthOft) = deployFraxOFTUpgradeableAndProxy({
-            _name: "Frax Ether",
-            _symbol: "frxETH"
-        });
-
-        // Deploy FPI
-        (, fpiOft) = deployFraxOFTUpgradeableAndProxy({
-            _name: "Frax Price Index",
-            _symbol: "FPI"
-        });
+            address proxy;
+            /// @dev frxUSD hardcodes its name/symbol in the contract, so it has its own initializer
+            if (token == Token.FRXUSD) {
+                (, proxy) = deployFrxUsdOFTUpgradeableAndProxy();
+            } else {
+                (, proxy) = deployFraxOFTUpgradeableAndProxy({ _name: name_, _symbol: symbol_ });
+            }
+            _setOftForToken(token, proxy);
+        }
     }
 
     /// @notice Deploy a FraxOFTUpgradeable behind a TransparentUpgradeableProxy.
@@ -697,6 +682,7 @@ contract DeployFraxOFTProtocol is SetDVNs, BaseL0Script {
         if (nameHash == keccak256("sfrxETH"))  return 0x0000000000000000000000000000000000000000e89cf04fa14917675b2700a0;
         if (nameHash == keccak256("frxUSD"))   return 0x0000000000000000000000000000000000000000e89cf04fa149c185b52d0006;
         if (nameHash == keccak256("frxETH"))   return 0x0000000000000000000000000000000000000000e89cf04fa14981f4e2470008;
+        /// @dev retained for the earlier ops scripts that deployed FPI; no current path deploys it
         if (nameHash == keccak256("FPI"))      return 0x0000000000000000000000000000000000000000e89cf04fa1496467a96d00c0;
 
         return bytes32(0); // no vanity salt found
