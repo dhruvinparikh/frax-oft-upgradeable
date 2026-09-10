@@ -16,7 +16,7 @@ contract SendFraxOFTRobinhoodToFraxtal is SendFraxOFTFraxtalHub {
         srcEid = 30416;
         dstEid = 30255;
         amount = 0.0001 ether;
-        senderWallet = 0xE75177ED629a4770e2DA00e1395c28A5f9B745d4;
+        senderWallet = 0x741F0d8Bde14140f62107FC60A0EE122B37D4630;
         recipientWallet = 0x741F0d8Bde14140f62107FC60A0EE122B37D4630;
     }
 }
