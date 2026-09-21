@@ -31,7 +31,10 @@ import { makeBytes32 } from '@layerzerolabs/devtools'
 //     bytes data;
 // }
 
-// lookuptable address : AxK5myLkGReGSzEywXUM7hnbQ4n1ccnbR7VL7MqPBxFy
+// Frax's hop lookup table. A composed send does not fit a packet with
+// LayerZero's table alone, so it is always added (see
+// lz:oft:solana:extend-hop-lookup-table for keeping it complete).
+const FRAX_HOP_LOOKUP_TABLE = 'AxK5myLkGReGSzEywXUM7hnbQ4n1ccnbR7VL7MqPBxFy'
 
 const logger = createLogger()
 
@@ -100,8 +103,8 @@ task('lz:oft:send:fraxtalhopv2', 'Send frax OFT from Solana to any supported EVM
     .addOptionalParam('computeUnitPriceScaleFactor', 'Solana compute unit price scale factor', 4, types.float)
     .addOptionalParam(
         'addressLookupTables',
-        'Solana address lookup tables (comma separated base58 list)',
-        undefined,
+        `Solana address lookup tables used alongside LayerZero's (comma separated base58 list; default: Frax's hop table)`,
+        FRAX_HOP_LOOKUP_TABLE,
         types.string
     )
     .setAction(async (args: MasterArgs, hre: HardhatRuntimeEnvironment) => {
