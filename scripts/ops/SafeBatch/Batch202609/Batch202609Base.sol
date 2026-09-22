@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: ISC
 pragma solidity ^0.8.22;
 
-import {OftRouteDeprecationBatch} from "./OftRouteDeprecationBatch.sol";
-import {LegacyHopShutdownBatch} from "./LegacyHopShutdownBatch.sol";
+import {OftConfigBatch} from "../OftConfigBatch.sol";
+import {HopAdminBatch} from "../HopAdminBatch.sol";
 
 /// @notice One Safe transaction on Base (chain 8453).
 ///         1. FRA-102: shuts down BOTH first-generation HopV2 spokes — the one in the fraxtal-lz-hop
@@ -13,7 +13,7 @@ import {LegacyHopShutdownBatch} from "./LegacyHopShutdownBatch.sol";
 ///         2. Legacy OFT set (user-held supply): block the spoke-to-spoke send libraries toward Metis
 ///            and Blast-legacy; the lane into Ethereum-legacy, peers and receive config stay. Legacy
 ///            FPI (0.10 outstanding) is retired outright on all three lanes.
-contract MeshCleanupBase is OftRouteDeprecationBatch, LegacyHopShutdownBatch {
+contract Batch202609Base is OftConfigBatch, HopAdminBatch {
     address public constant BASE_SAFE = 0xCBfd4Ef00a8cf91Fd1e1Fe97dC05910772c15E53;
     address public constant OLD_HOP_V2 = 0x22beDD55A0D29Eb31e75C70F54fADa7Ca94339B9;
     address public constant OLDER_HOP_V2 = 0x7C5004F64F86728b5d852CeEc7987333114b206d;
@@ -37,6 +37,10 @@ contract MeshCleanupBase is OftRouteDeprecationBatch, LegacyHopShutdownBatch {
 
     function safe() public pure override returns (address) {
         return BASE_SAFE;
+    }
+
+    function chainId() public pure override returns (uint256) {
+        return 8453;
     }
 
     function endpoint() public pure override returns (address) {

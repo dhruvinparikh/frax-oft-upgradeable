@@ -2,8 +2,8 @@
 pragma solidity ^0.8.22;
 
 import "forge-std/Test.sol";
-import {SafeDelegateBatch} from "scripts/ops/SafeDelegateBatch.sol";
-import {OftRouteDeprecationBatch} from "scripts/ops/DeprecateChain/OftRouteDeprecationBatch.sol";
+import {SafeDelegateBatch} from "scripts/ops/SafeBatch/SafeDelegateBatch.sol";
+import {OftConfigBatch} from "scripts/ops/SafeBatch/OftConfigBatch.sol";
 
 interface ISafe {
     function nonce() external view returns (uint256);
@@ -50,7 +50,7 @@ interface IUlnView {
     function getAppUlnConfig(address _oapp, uint32 _remoteEid)
         external
         view
-        returns (OftRouteDeprecationBatch.UlnConfig memory);
+        returns (OftConfigBatch.UlnConfig memory);
 }
 
 interface IFraxtalHubView {
@@ -63,6 +63,25 @@ interface IOldHopV2View {
     function approvedOft(address oft) external view returns (bool);
     function numDVNs() external view returns (uint32);
     function executorOptions(uint32 eid) external view returns (bytes memory);
+}
+
+struct SendParam {
+    uint32 dstEid;
+    bytes32 to;
+    uint256 amountLD;
+    uint256 minAmountLD;
+    bytes extraOptions;
+    bytes composeMsg;
+    bytes oftCmd;
+}
+
+struct MessagingFee {
+    uint256 nativeFee;
+    uint256 lzTokenFee;
+}
+
+interface IOFTQuote {
+    function quoteSend(SendParam calldata _sendParam, bool _payInLzToken) external view returns (MessagingFee memory);
 }
 
 interface ILegacyHopView {
@@ -181,15 +200,15 @@ abstract contract SafeDelegateBatchTest is Test {
     }
 }
 
-/// @dev Shared OFT-route and legacy-hop assertions for the Deprecate* campaigns.
-abstract contract OftRouteDeprecationBatchTest is SafeDelegateBatchTest {
+/// @dev Shared LayerZero-config and hop assertions for OftConfigBatch campaigns.
+abstract contract OftConfigBatchTest is SafeDelegateBatchTest {
     address internal endpoint;
     address internal blockedLibrary;
     address internal sendUln;
     address internal receiveUln;
 
     /// @dev Reads the chain constants off the batch under test.
-    function _bind(OftRouteDeprecationBatch batch) internal {
+    function _bind(OftConfigBatch batch) internal {
         helper = batch;
         endpoint = batch.endpoint();
         blockedLibrary = batch.blockedLibrary();
@@ -226,7 +245,7 @@ abstract contract OftRouteDeprecationBatchTest is SafeDelegateBatchTest {
         _assertZeroUln(IUlnView(receiveUln).getAppUlnConfig(oft, eid), "receive ULN app config not zeroed");
     }
 
-    function _assertZeroUln(OftRouteDeprecationBatch.UlnConfig memory cfg, string memory err) internal {
+    function _assertZeroUln(OftConfigBatch.UlnConfig memory cfg, string memory err) internal {
         assertTrue(
             cfg.confirmations == 0 && cfg.requiredDVNCount == 0 && cfg.optionalDVNCount == 0
                 && cfg.optionalDVNThreshold == 0 && cfg.requiredDVNs.length == 0 && cfg.optionalDVNs.length == 0,
@@ -246,7 +265,7 @@ abstract contract OftRouteDeprecationBatchTest is SafeDelegateBatchTest {
     mapping(address => mapping(uint32 => address)) internal legacyReceiveLibBefore;
 
     /// @dev Legacy spoke lanes before: peered and open toward both other spokes and Ethereum.
-    function _assertLegacyLanesOpen(OftRouteDeprecationBatch batch, uint32 spokeA, uint32 spokeB) internal {
+    function _assertLegacyLanesOpen(OftConfigBatch batch, uint32 spokeA, uint32 spokeB) internal {
         address[] memory ofts = batch.legacyOfts();
         for (uint256 i = 0; i < ofts.length; i++) {
             uint32[3] memory eids = [spokeA, spokeB, ETHEREUM_LEGACY_EID];
@@ -260,7 +279,7 @@ abstract contract OftRouteDeprecationBatchTest is SafeDelegateBatchTest {
 
     /// @dev Legacy spoke lanes after: send blocked toward the two spokes ONLY; the Ethereum exit,
     ///      every peer and the receive libraries are exactly as before.
-    function _assertLegacySpokeLanesBlocked(OftRouteDeprecationBatch batch, uint32 spokeA, uint32 spokeB) internal {
+    function _assertLegacySpokeLanesBlocked(OftConfigBatch batch, uint32 spokeA, uint32 spokeB) internal {
         address[] memory ofts = batch.legacyOfts();
         for (uint256 i = 0; i < ofts.length; i++) {
             assertEq(IEndpointView(endpoint).getSendLibrary(ofts[i], spokeA), blockedLibrary, "spoke lane A not blocked");
@@ -298,5 +317,36 @@ abstract contract OftRouteDeprecationBatchTest is SafeDelegateBatchTest {
     function _three(uint32 a, uint32 b, uint32 c) internal pure returns (uint32[] memory eids) {
         eids = new uint32[](3);
         (eids[0], eids[1], eids[2]) = (a, b, c);
+    }
+
+    /// @dev Required-DVN set of (oft, eid) on both ULN302 libraries, with confirmations untouched.
+    function _assertRequiredDvns(address oft, uint32 eid, address[] memory dvns, uint64 sendConf, uint64 recvConf) internal {
+        OftConfigBatch.UlnConfig memory cs = IUlnView(sendUln).getAppUlnConfig(oft, eid);
+        OftConfigBatch.UlnConfig memory cr = IUlnView(receiveUln).getAppUlnConfig(oft, eid);
+        assertEq(cs.confirmations, sendConf, "send confirmations changed");
+        assertEq(cr.confirmations, recvConf, "receive confirmations changed");
+        assertEq(cs.requiredDVNs.length, dvns.length, "send DVN count");
+        assertEq(cr.requiredDVNs.length, dvns.length, "receive DVN count");
+        for (uint256 i = 0; i < dvns.length; i++) {
+            assertEq(cs.requiredDVNs[i], dvns[i], "send DVN set");
+            assertEq(cr.requiredDVNs[i], dvns[i], "receive DVN set");
+        }
+        assertEq(cs.optionalDVNCount, type(uint8).max, "send optional DVNs must stay NIL");
+        assertEq(cr.optionalDVNCount, type(uint8).max, "receive optional DVNs must stay NIL");
+    }
+
+    /// @dev Every configured DVN must price the path, or the lane is dead after the change.
+    function _assertQuotes(address oft, uint32 eid) internal {
+        SendParam memory p = SendParam({
+            dstEid: eid,
+            to: bytes32(uint256(uint160(address(0xBEEF)))),
+            amountLD: 1e18,
+            minAmountLD: 0,
+            extraOptions: hex"0003",
+            composeMsg: "",
+            oftCmd: ""
+        });
+        MessagingFee memory fee = IOFTQuote(oft).quoteSend(p, false);
+        assertTrue(fee.nativeFee > 0, "quoteSend returned no fee");
     }
 }

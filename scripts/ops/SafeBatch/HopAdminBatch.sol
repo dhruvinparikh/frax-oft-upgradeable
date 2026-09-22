@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: ISC
 pragma solidity ^0.8.22;
 
-import {SafeDelegateBatch} from "../SafeDelegateBatch.sol";
+import {SafeDelegateBatch} from "./SafeDelegateBatch.sol";
 
 /// @dev Legacy V1 hop admin surface (fraxtal-lz-hop RemoteHop / RemoteMintRedeemHop, all onlyOwner).
 ///      Only the bytes32 setFraxtalHop overload is declared so the selector is unambiguous
@@ -28,8 +28,9 @@ interface IOldHopV2 {
     function recover(address _target, uint256 _value, bytes calldata _data) external;
 }
 
-/// @notice Hop shutdown recipes as SafeDelegateBatch steps (see scripts/ops/SafeDelegateBatch.sol).
-abstract contract LegacyHopShutdownBatch is SafeDelegateBatch {
+/// @notice Hop admin recipes for a SafeDelegateBatch (see SafeDelegateBatch.sol): V1 hop retirement,
+///         first-generation HopV2 shutdown.
+abstract contract HopAdminBatch is SafeDelegateBatch {
     uint32 public constant SOLANA_EID = 30168;
 
     /// @dev Tail of the 27-chain legacy hop wind-down recipe, shared by RemoteHop and
@@ -38,7 +39,7 @@ abstract contract LegacyHopShutdownBatch is SafeDelegateBatch {
         ILegacyRemoteHop hop = ILegacyRemoteHop(_hop);
         // Hop setters have no same-value checks, so pin the replay guard here: a re-queued batch
         // must revert (GS013, nonce untouched) instead of silently succeeding.
-        require(!hop.paused(), "LegacyHopShutdownBatch: hop already retired");
+        require(!hop.paused(), "HopAdminBatch: hop already retired");
         hop.setFraxtalHop(bytes32(0));
         hop.setNumDVNs(0);
         hop.setHopFee(0);
@@ -54,7 +55,7 @@ abstract contract LegacyHopShutdownBatch is SafeDelegateBatch {
         internal
     {
         IOldHopV2 hop = IOldHopV2(_hop);
-        require(!hop.paused(), "LegacyHopShutdownBatch: HopV2 already shut down");
+        require(!hop.paused(), "HopAdminBatch: HopV2 already shut down");
         hop.pauseOn();
         for (uint256 i = 0; i < _eids.length; i++) {
             hop.setRemoteHop(_eids[i], bytes32(0));

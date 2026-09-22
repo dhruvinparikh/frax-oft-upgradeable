@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: ISC
 pragma solidity ^0.8.22;
 
-import {OftRouteDeprecationBatch, IFraxtalHub} from "./OftRouteDeprecationBatch.sol";
-import {LegacyHopShutdownBatch} from "./LegacyHopShutdownBatch.sol";
+import {OftConfigBatch, IFraxtalHub} from "../OftConfigBatch.sol";
+import {HopAdminBatch} from "../HopAdminBatch.sol";
 
 /// @notice One Safe transaction on Fraxtal (chain 252) for everything FRA-81 leaves on the hub.
 ///         1. FraxtalMintRedeemHop still registers remote hops for five retired chains — Blast,
@@ -15,8 +15,13 @@ import {LegacyHopShutdownBatch} from "./LegacyHopShutdownBatch.sol";
 ///         3. FRA-102: shuts down the first-generation HopV2 hub (fraxtal-lz-hop `HopV2 Mainnet`),
 ///            superseded by the hop-v2 hub 0x00000000e18aFc20…: pause, drop its Ethereum / Arbitrum /
 ///            Base spoke registrations and lockbox approvals, zero numDVNs, sweep its FRAX to the Safe.
-///         Nothing here touches a live route: Fraxtal peers none of these eids.
-contract MeshCleanupFraxtal is OftRouteDeprecationBatch, LegacyHopShutdownBatch {
+///         4. FRA-100: Katana lane to 5/5 — Horizen now runs a DVN on Katana, so the five live lockboxes'
+///            send and receive ULN config toward Katana (30375) goes from 4 to 5 required DVNs
+///            (confirmations unchanged: 5 out, 60 in). Batch202609Katana does the mirror image plus
+///            the hops' numDVNs; execute this one FIRST (Fraxtal then pays five DVNs before Katana
+///            starts requiring five).
+///         Items 1-3 touch no live route: Fraxtal peers none of those eids.
+contract Batch202609Fraxtal is OftConfigBatch, HopAdminBatch {
     address public constant FRAXTAL_SAFE = 0x5f25218ed9474b721d6a38c115107428E832fA2E;
     address public constant FRAXTAL_MINT_REDEEM_HOP = 0x3e6a2cBaFD864e09e6DAb9Cf035a0AbEa32bc0BC;
     address public constant OLD_HOP_V2_HUB = 0xe8Cd13de17CeC6FCd9dD5E0a1465Da240f951536;
@@ -31,6 +36,9 @@ contract MeshCleanupFraxtal is OftRouteDeprecationBatch, LegacyHopShutdownBatch 
     uint32 public constant ETHEREUM_EID = 30101;
     uint32 public constant ARBITRUM_EID = 30110;
     uint32 public constant BASE_EID = 30184;
+    uint32 public constant KATANA_EID = 30375;
+    uint64 public constant KATANA_SEND_CONFIRMATIONS = 5;
+    uint64 public constant KATANA_RECEIVE_CONFIRMATIONS = 60;
     uint32 public constant PLASMA_EID = 30383;
     uint32 public constant BLAST_EID = 30243;
     uint32 public constant METIS_EID = 30151;
@@ -54,6 +62,10 @@ contract MeshCleanupFraxtal is OftRouteDeprecationBatch, LegacyHopShutdownBatch 
 
     function safe() public pure override returns (address) {
         return FRAXTAL_SAFE;
+    }
+
+    function chainId() public pure override returns (uint256) {
+        return 252;
     }
 
     function endpoint() public pure override returns (address) {
@@ -82,6 +94,16 @@ contract MeshCleanupFraxtal is OftRouteDeprecationBatch, LegacyHopShutdownBatch 
         (eids[0], eids[1], eids[2]) = (ETHEREUM_EID, ARBITRUM_EID, BASE_EID);
     }
 
+    /// @dev Fraxtal-side DVNs for the Katana lane, ascending: Frax, Canary, Nethermind, LayerZero, Horizen.
+    function katanaDvns() public pure returns (address[] memory dvns) {
+        dvns = new address[](5);
+        dvns[0] = 0x26cD5aBaDf7eC3f0F02b48314bfcA6b2342cddD4;
+        dvns[1] = 0x6398E91001Cc1682bBA103E6B2489Fa5675a5a64;
+        dvns[2] = 0xa7b5189bcA84Cd304D8553977c7C614329750d99;
+        dvns[3] = 0xcCE466a522984415bC91338c232d98869193D46e;
+        dvns[4] = 0xDd7B5E1dB4AaFd5C8EC3b764eFB8ed265Aa5445B;
+    }
+
     function lockboxes() public pure returns (address[] memory list) {
         list = new address[](6);
         (list[0], list[1], list[2]) = (WFRAX_LOCKBOX, SFRXUSD_LOCKBOX, SFRXETH_LOCKBOX);
@@ -104,5 +126,12 @@ contract MeshCleanupFraxtal is OftRouteDeprecationBatch, LegacyHopShutdownBatch 
         _shutdownOldHopV2({_hop: OLD_HOP_V2_HUB, _eids: oldHopV2Eids(), _ofts: boxes, _clearSolanaExecutorOptions: false});
 
         _retireRoutes(BAD_FPI_OFT, badFpiEids(), true);
+
+        address[] memory dvns = katanaDvns();
+        for (uint256 i = 0; i < boxes.length; i++) {
+            if (boxes[i] == FPI_LOCKBOX) continue; // FPI is retired: its Katana route is already severed
+            _setRequiredDvns(boxes[i], KATANA_EID, sendUln302(), KATANA_SEND_CONFIRMATIONS, dvns);
+            _setRequiredDvns(boxes[i], KATANA_EID, receiveUln302(), KATANA_RECEIVE_CONFIRMATIONS, dvns);
+        }
     }
 }

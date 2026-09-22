@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: ISC
 pragma solidity ^0.8.22;
 
-import {SafeDelegateBatch} from "../SafeDelegateBatch.sol";
+import {SafeDelegateBatch} from "./SafeDelegateBatch.sol";
 
 /// LayerZero / legacy hop interfaces are inlined (only the members used) so the verified source is a
 /// few short files a signer can read on the explorer without chasing package imports.
@@ -36,8 +36,9 @@ interface IFraxtalHub {
     function setRemoteHop(uint32 _eid, bytes32 _remoteHop) external;
 }
 
-/// @notice OFT route teardown as a SafeDelegateBatch (see scripts/ops/SafeDelegateBatch.sol for the
-///         delegatecall rules). `_sever` mirrors `DeprecateOFTBase._deprecatePairOnToken`:
+/// @notice LayerZero endpoint / OFT config recipes for a SafeDelegateBatch (see SafeDelegateBatch.sol for
+///         the delegatecall rules): sever or retire routes, freeze sends, pin DVN sets, hub registry.
+///         `_sever` mirrors `DeprecateOFTBase._deprecatePairOnToken`:
 ///           send library  -> BlockedMessageLib
 ///           peer          -> bytes32(0)            (only where the peer is still set)
 ///           receive lib   -> DEFAULT (address(0))
@@ -45,7 +46,7 @@ interface IFraxtalHub {
 ///           app ULN cfg   -> empty UlnConfig on the send and receive ULN302 libraries
 ///         The endpoint reverts LZ_SameValue when a library is already at the target value, so a
 ///         subclass must only sever routes whose libraries are still dirty (the fork tests pin that).
-abstract contract OftRouteDeprecationBatch is SafeDelegateBatch {
+abstract contract OftConfigBatch is SafeDelegateBatch {
     /// @dev UlnConfig layout from `@layerzerolabs/lz-evm-messagelib-v2/contracts/uln/UlnBase.sol`;
     ///      encoded as the zero config so the OApp falls back to the library defaults.
     struct UlnConfig {
@@ -129,6 +130,34 @@ abstract contract OftRouteDeprecationBatch is SafeDelegateBatch {
             IOAppCore(_oft).setPeer(_eids[i], bytes32(0));
             IMessageLibManager(endpoint()).setReceiveLibrary(_oft, _eids[i], blockedLibrary(), 0);
         }
+    }
+
+    /// @dev NIL_DVN_COUNT: "no optional DVNs" (0 would mean "use the default optional set").
+    uint8 internal constant NIL_DVN_COUNT = type(uint8).max;
+
+    /// @dev Pin the required DVN set of one route on one ULN302 library (`_dvns` ascending, unique).
+    function _setRequiredDvns(address _oft, uint32 _eid, address _lib, uint64 _confirmations, address[] memory _dvns)
+        internal
+    {
+        for (uint256 i = 1; i < _dvns.length; i++) {
+            require(_dvns[i] > _dvns[i - 1], "DVNs must be ascending");
+        }
+        IMessageLibManager.SetConfigParam[] memory params = new IMessageLibManager.SetConfigParam[](1);
+        params[0] = IMessageLibManager.SetConfigParam({
+            eid: _eid,
+            configType: CONFIG_TYPE_ULN,
+            config: abi.encode(
+                UlnConfig({
+                    confirmations: _confirmations,
+                    requiredDVNCount: uint8(_dvns.length),
+                    optionalDVNCount: NIL_DVN_COUNT,
+                    optionalDVNThreshold: 0,
+                    requiredDVNs: _dvns,
+                    optionalDVNs: new address[](0)
+                })
+            )
+        });
+        IMessageLibManager(endpoint()).setConfig(_oft, _lib, params);
     }
 
     function _eids3(uint32 _a, uint32 _b, uint32 _c) internal pure returns (uint32[] memory eids) {

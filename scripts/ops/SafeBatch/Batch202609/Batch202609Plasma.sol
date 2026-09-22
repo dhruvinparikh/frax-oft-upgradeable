@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: ISC
 pragma solidity ^0.8.22;
 
-import {OftRouteDeprecationBatch} from "./OftRouteDeprecationBatch.sol";
-import {LegacyHopShutdownBatch, ILegacyRemoteHop} from "./LegacyHopShutdownBatch.sol";
+import {OftConfigBatch} from "../OftConfigBatch.sol";
+import {HopAdminBatch, ILegacyRemoteHop} from "../HopAdminBatch.sol";
 
 /// @notice One Safe transaction on Plasma (chain 9745) for FRA-81 / the Plasma sub-issue.
 ///         1. Severs the Fraxtal (eid 30255) route on all six Plasma OFTs, which still peer the
@@ -12,7 +12,7 @@ import {LegacyHopShutdownBatch, ILegacyRemoteHop} from "./LegacyHopShutdownBatch
 ///            the recipe the 27-chain legacy hop wind-down applied to every other spoke: drop OFT
 ///            approvals, clear executor options, zero fraxtalHop / numDVNs / hopFee, pause.
 ///            recoverETH is omitted: all four hold 0 XPL.
-contract MeshCleanupPlasma is OftRouteDeprecationBatch, LegacyHopShutdownBatch {
+contract Batch202609Plasma is OftConfigBatch, HopAdminBatch {
     address public constant PLASMA_SAFE = 0x7d99C7737751b044DF4fA10aeEFA31532dd11DBE;
     uint32 public constant FRAXTAL_EID = 30255;
 
@@ -31,6 +31,10 @@ contract MeshCleanupPlasma is OftRouteDeprecationBatch, LegacyHopShutdownBatch {
 
     function safe() public pure override returns (address) {
         return PLASMA_SAFE;
+    }
+
+    function chainId() public pure override returns (uint256) {
+        return 9745;
     }
 
     function endpoint() public pure override returns (address) {

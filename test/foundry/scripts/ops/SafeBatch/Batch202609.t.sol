@@ -2,31 +2,34 @@
 pragma solidity ^0.8.22;
 
 import {
-    OftRouteDeprecationBatchTest,
+    OftConfigBatchTest,
+    IUlnView,
     IOAppView,
     IEndpointView,
     ILegacyHopView,
     IFraxtalHubView,
+    IOldHopV2View,
     SafeDelegateBatchTest
-} from "./OftRouteDeprecationBatchTest.sol";
-import {MeshCleanupPlasma} from "scripts/ops/DeprecateChain/MeshCleanupPlasma.sol";
-import {MeshCleanupBlast} from "scripts/ops/DeprecateChain/MeshCleanupBlast.sol";
-import {MeshCleanupFraxtal} from "scripts/ops/DeprecateChain/MeshCleanupFraxtal.sol";
-import {MeshCleanupEthereum} from "scripts/ops/DeprecateChain/MeshCleanupEthereum.sol";
-import {MeshCleanupEthereumHop} from "scripts/ops/DeprecateChain/MeshCleanupEthereumHop.sol";
-import {MeshCleanupArbitrum} from "scripts/ops/DeprecateChain/MeshCleanupArbitrum.sol";
-import {MeshCleanupBase} from "scripts/ops/DeprecateChain/MeshCleanupBase.sol";
-import {MeshCleanupSei} from "scripts/ops/DeprecateChain/MeshCleanupSei.sol";
-import {MeshCleanupXLayer} from "scripts/ops/DeprecateChain/MeshCleanupXLayer.sol";
+} from "./SafeBatchTest.sol";
+import {Batch202609Plasma} from "scripts/ops/SafeBatch/Batch202609/Batch202609Plasma.sol";
+import {Batch202609Blast} from "scripts/ops/SafeBatch/Batch202609/Batch202609Blast.sol";
+import {Batch202609Fraxtal} from "scripts/ops/SafeBatch/Batch202609/Batch202609Fraxtal.sol";
+import {Batch202609Ethereum} from "scripts/ops/SafeBatch/Batch202609/Batch202609Ethereum.sol";
+import {Batch202609EthereumHop} from "scripts/ops/SafeBatch/Batch202609/Batch202609EthereumHop.sol";
+import {Batch202609Arbitrum} from "scripts/ops/SafeBatch/Batch202609/Batch202609Arbitrum.sol";
+import {Batch202609Base} from "scripts/ops/SafeBatch/Batch202609/Batch202609Base.sol";
+import {Batch202609Sei} from "scripts/ops/SafeBatch/Batch202609/Batch202609Sei.sol";
+import {Batch202609XLayer} from "scripts/ops/SafeBatch/Batch202609/Batch202609XLayer.sol";
+import {Batch202609Katana} from "scripts/ops/SafeBatch/Batch202609/Batch202609Katana.sol";
 
-contract MeshCleanupPlasmaTest is OftRouteDeprecationBatchTest {
-    MeshCleanupPlasma internal h;
+contract Batch202609PlasmaTest is OftConfigBatchTest {
+    Batch202609Plasma internal h;
     address[6] internal ofts;
     address[4] internal hops;
 
     function setUp() public {
         vm.createSelectFork("https://rpc.plasma.to", 33064570);
-        h = new MeshCleanupPlasma();
+        h = new Batch202609Plasma();
         _bind(h);
         ofts = [h.WFRAX_OFT(), h.SFRXUSD_OFT(), h.SFRXETH_OFT(), h.FRXUSD_OFT(), h.FRXETH_OFT(), h.FPI_OFT()];
         hops = [
@@ -64,14 +67,14 @@ contract MeshCleanupPlasmaTest is OftRouteDeprecationBatchTest {
     }
 }
 
-contract MeshCleanupBlastTest is OftRouteDeprecationBatchTest {
-    MeshCleanupBlast internal h;
+contract Batch202609BlastTest is OftConfigBatchTest {
+    Batch202609Blast internal h;
     address[5] internal ofts;
     uint32[13] internal eids;
 
     function setUp() public {
         vm.createSelectFork("https://rpc.blast.io", 40601775);
-        h = new MeshCleanupBlast();
+        h = new Batch202609Blast();
         _bind(h);
         ofts = [h.WFRAX_OFT(), h.SFRXUSD_OFT(), h.SFRXETH_OFT(), h.FRXUSD_OFT(), h.FRXETH_OFT()];
         uint32[10] memory peered = h.peeredEids();
@@ -123,15 +126,15 @@ contract MeshCleanupBlastTest is OftRouteDeprecationBatchTest {
     }
 }
 
-contract MeshCleanupFraxtalTest is OftRouteDeprecationBatchTest {
-    MeshCleanupFraxtal internal h;
+contract Batch202609FraxtalTest is OftConfigBatchTest {
+    Batch202609Fraxtal internal h;
     address[6] internal lockboxes;
     uint256 internal oldHubBalance;
     uint256 internal safeBalance;
 
     function setUp() public {
         vm.createSelectFork("https://rpc.frax.com", 41603615);
-        h = new MeshCleanupFraxtal();
+        h = new Batch202609Fraxtal();
         _bind(h);
         lockboxes = [
             h.WFRAX_LOCKBOX(),
@@ -157,6 +160,10 @@ contract MeshCleanupFraxtalTest is OftRouteDeprecationBatchTest {
             if (lockboxes[i] != h.FPI_LOCKBOX()) _assertRouteDirty(lockboxes[i], h.BLAST_EID(), false);
         }
         _assertOldHopV2Live(h.OLD_HOP_V2_HUB(), h.oldHopV2Eids(), h.lockboxes());
+        for (uint256 i = 0; i < lockboxes.length; i++) {
+            if (lockboxes[i] == h.FPI_LOCKBOX()) continue;
+            assertEq(IUlnView(sendUln).getAppUlnConfig(lockboxes[i], h.KATANA_EID()).requiredDVNs.length, 4, "fork state drifted: Katana lane not 4 DVNs");
+        }
         oldHubBalance = h.OLD_HOP_V2_HUB().balance;
         safeBalance = h.safe().balance;
         assertTrue(oldHubBalance != 0, "fork state drifted: old hub already swept");
@@ -176,16 +183,21 @@ contract MeshCleanupFraxtalTest is OftRouteDeprecationBatchTest {
         _assertOldHopV2Shutdown(h.OLD_HOP_V2_HUB(), h.oldHopV2Eids(), h.lockboxes());
         assertEq(h.safe().balance, safeBalance + oldHubBalance, "old hub FRAX not swept to the Safe");
         _assertRoutesRetired(h.BAD_FPI_OFT(), h.badFpiEids());
+        for (uint256 i = 0; i < lockboxes.length; i++) {
+            if (lockboxes[i] == h.FPI_LOCKBOX()) continue;
+            _assertRequiredDvns(lockboxes[i], h.KATANA_EID(), h.katanaDvns(), h.KATANA_SEND_CONFIRMATIONS(), h.KATANA_RECEIVE_CONFIRMATIONS());
+        }
+        _assertQuotes(h.FRXUSD_LOCKBOX(), h.KATANA_EID());
     }
 }
 
-contract MeshCleanupEthereumTest is OftRouteDeprecationBatchTest {
-    MeshCleanupEthereum internal h;
+contract Batch202609EthereumTest is OftConfigBatchTest {
+    Batch202609Ethereum internal h;
     address[3] internal owned;
 
     function setUp() public {
         vm.createSelectFork("https://eth-mainnet.public.blastapi.io", 26027887);
-        h = new MeshCleanupEthereum();
+        h = new Batch202609Ethereum();
         _bind(h);
         owned = [h.SFRXUSD_LOCKBOX(), h.SFRXETH_LOCKBOX(), h.FRXETH_LOCKBOX()];
     }
@@ -269,10 +281,10 @@ abstract contract OldHopV2SpokeTest is SafeDelegateBatchTest {
     }
 }
 
-contract MeshCleanupArbitrumTest is OldHopV2SpokeTest {
+contract Batch202609ArbitrumTest is OldHopV2SpokeTest {
     function setUp() public {
         vm.createSelectFork("https://arb1.arbitrum.io/rpc", 507543763);
-        MeshCleanupArbitrum h = new MeshCleanupArbitrum();
+        Batch202609Arbitrum h = new Batch202609Arbitrum();
         helper = h;
         hops.push(h.OLD_HOP_V2());
         eids.push(h.FRAXTAL_EID());
@@ -280,8 +292,8 @@ contract MeshCleanupArbitrumTest is OldHopV2SpokeTest {
     }
 }
 
-contract MeshCleanupBaseTest is OftRouteDeprecationBatchTest {
-    MeshCleanupBase internal h;
+contract Batch202609BaseTest is OftConfigBatchTest {
+    Batch202609Base internal h;
     address[2] internal hops;
     uint32[] internal hubEids;
     uint256 internal hopBalances;
@@ -289,7 +301,7 @@ contract MeshCleanupBaseTest is OftRouteDeprecationBatchTest {
 
     function setUp() public {
         vm.createSelectFork("https://base-rpc.publicnode.com", 51614978);
-        h = new MeshCleanupBase();
+        h = new Batch202609Base();
         _bind(h);
         hops = [h.OLD_HOP_V2(), h.OLDER_HOP_V2()];
         hubEids.push(h.FRAXTAL_EID());
@@ -317,10 +329,10 @@ contract MeshCleanupBaseTest is OftRouteDeprecationBatchTest {
     }
 }
 
-contract MeshCleanupEthereumHopTest is OldHopV2SpokeTest {
+contract Batch202609EthereumHopTest is OldHopV2SpokeTest {
     function setUp() public {
         vm.createSelectFork("https://eth-mainnet.public.blastapi.io", 26027887);
-        MeshCleanupEthereumHop h = new MeshCleanupEthereumHop();
+        Batch202609EthereumHop h = new Batch202609EthereumHop();
         helper = h;
         hops.push(h.OLD_HOP_V2());
         eids.push(h.FRAXTAL_EID());
@@ -329,7 +341,7 @@ contract MeshCleanupEthereumHopTest is OldHopV2SpokeTest {
 }
 
 /// @dev Spoke-only chains of the non-canonical FPI mesh.
-abstract contract BadFpiSpokeTest is OftRouteDeprecationBatchTest {
+abstract contract BadFpiSpokeTest is OftConfigBatchTest {
     address internal badFpi;
     uint32[] internal eids;
 
@@ -342,22 +354,53 @@ abstract contract BadFpiSpokeTest is OftRouteDeprecationBatchTest {
     }
 }
 
-contract MeshCleanupSeiTest is BadFpiSpokeTest {
+contract Batch202609SeiTest is BadFpiSpokeTest {
     function setUp() public {
         vm.createSelectFork("https://sei-evm-rpc.publicnode.com", 233357408);
-        MeshCleanupSei h = new MeshCleanupSei();
+        Batch202609Sei h = new Batch202609Sei();
         _bind(h);
         badFpi = h.BAD_FPI_OFT();
         eids = h.badFpiEids();
     }
 }
 
-contract MeshCleanupXLayerTest is BadFpiSpokeTest {
+contract Batch202609XLayerTest is BadFpiSpokeTest {
     function setUp() public {
         vm.createSelectFork("https://xlayerrpc.okx.com", 71256568);
-        MeshCleanupXLayer h = new MeshCleanupXLayer();
+        Batch202609XLayer h = new Batch202609XLayer();
         _bind(h);
         badFpi = h.BAD_FPI_OFT();
         eids = h.badFpiEids();
+    }
+}
+
+contract Batch202609KatanaTest is OftConfigBatchTest {
+    Batch202609Katana internal h;
+
+    function setUp() public {
+        vm.createSelectFork("https://rpc.katana.network", 43290445);
+        h = new Batch202609Katana();
+        _bind(h);
+    }
+
+    function _assertBefore() internal override {
+        address[] memory list = h.ofts();
+        for (uint256 i = 0; i < list.length; i++) {
+            assertEq(IUlnView(sendUln).getAppUlnConfig(list[i], h.FRAXTAL_EID()).requiredDVNs.length, 4, "fork state drifted: Fraxtal lane not 4 DVNs");
+        }
+        assertEq(ILegacyHopView(h.REMOTE_MINT_REDEEM_HOP()).numDVNs(), 4, "fork state drifted: mint-redeem hop numDVNs");
+        assertEq(IOldHopV2View(h.REMOTE_HOP_V2()).numDVNs(), 4, "fork state drifted: HopV2 numDVNs");
+        _assertRouteDirty(h.FPI_OFT(), h.FRAXTAL_EID(), true);
+    }
+
+    function _assertAfter() internal override {
+        address[] memory list = h.ofts();
+        for (uint256 i = 0; i < list.length; i++) {
+            _assertRequiredDvns(list[i], h.FRAXTAL_EID(), h.fraxtalDvns(), h.FRAXTAL_SEND_CONFIRMATIONS(), h.FRAXTAL_RECEIVE_CONFIRMATIONS());
+        }
+        _assertQuotes(list[3], h.FRAXTAL_EID()); // frxUSD
+        assertEq(ILegacyHopView(h.REMOTE_MINT_REDEEM_HOP()).numDVNs(), 5, "mint-redeem hop numDVNs not 5");
+        assertEq(IOldHopV2View(h.REMOTE_HOP_V2()).numDVNs(), 5, "HopV2 numDVNs not 5");
+        _assertRouteSevered(h.FPI_OFT(), h.FRAXTAL_EID());
     }
 }

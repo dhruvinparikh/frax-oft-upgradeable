@@ -1,19 +1,23 @@
 // SPDX-License-Identifier: ISC
 pragma solidity ^0.8.22;
 
-import {LegacyHopShutdownBatch} from "./LegacyHopShutdownBatch.sol";
+import {HopAdminBatch} from "../HopAdminBatch.sol";
 
 /// @notice One Safe transaction on Arbitrum (chain 42161) for FRA-102: shuts down the
 ///         first-generation HopV2 spoke (fraxtal-lz-hop `HopV2 Mainnet`), superseded by the hop-v2
 ///         RemoteHopV2 0x0000006D38…: pause, drop the Fraxtal hub registration and the six OFT
 ///         approvals, zero numDVNs, clear the Solana executor options, sweep its ETH to the Safe.
-contract MeshCleanupArbitrum is LegacyHopShutdownBatch {
+contract Batch202609Arbitrum is HopAdminBatch {
     address public constant ARBITRUM_SAFE = 0x3da490b19F300E7cb2280426C8aD536dB2df445c;
     address public constant OLD_HOP_V2 = 0xf307Ad241E1035062Ed11F444740f108B8D036a6;
     uint32 public constant FRAXTAL_EID = 30255;
 
     function safe() public pure override returns (address) {
         return ARBITRUM_SAFE;
+    }
+
+    function chainId() public pure override returns (uint256) {
+        return 42161;
     }
 
     function ofts() public pure returns (address[] memory list) {

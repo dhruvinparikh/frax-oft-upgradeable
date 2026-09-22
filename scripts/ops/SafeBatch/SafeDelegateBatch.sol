@@ -24,12 +24,15 @@ pragma solidity ^0.8.22;
 ///         Transaction Builder only emits CALLs — then signers confirm in the Safe UI, which shows
 ///         its "unexpected delegate call" warning for any target that is not MultiSend.
 ///
-///         Test template: SafeDelegateBatchTest in
-///         test/foundry/scripts/ops/DeprecateChain/OftRouteDeprecationBatchTest.sol (real Safe
+///         Deploy with scripts/ops/SafeBatch/DeploySafeBatch.s.sol (BATCH=<ContractName>); test with
+///         SafeDelegateBatchTest in test/foundry/scripts/ops/SafeBatch/SafeBatchTest.sol (real Safe
 ///         execTransaction on a fork, before/after state, replay -> GS013, opcode scan).
 abstract contract SafeDelegateBatch {
     /// @notice The only Safe this batch may run in.
     function safe() public pure virtual returns (address);
+
+    /// @notice The only chain this batch may be deployed to (checked by DeploySafeBatch).
+    function chainId() public pure virtual returns (uint256);
 
     function execute() external {
         require(address(this) == safe(), "SafeDelegateBatch: must be delegatecalled by the pinned Safe");

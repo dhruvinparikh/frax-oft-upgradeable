@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: ISC
 pragma solidity ^0.8.22;
 
-import {OftRouteDeprecationBatch, IMessageLibManager} from "./OftRouteDeprecationBatch.sol";
-import {LegacyHopShutdownBatch} from "./LegacyHopShutdownBatch.sol";
+import {OftConfigBatch, IMessageLibManager} from "../OftConfigBatch.sol";
+import {HopAdminBatch} from "../HopAdminBatch.sol";
 
 /// @notice One Safe transaction on Blast (chain 81457) for FRA-95 / FRA-56 (proxy OFT set only).
 ///         Blast was never rewired to the Fraxtal hub and no chain peers it back any more, but its
@@ -23,7 +23,7 @@ import {LegacyHopShutdownBatch} from "./LegacyHopShutdownBatch.sol";
 ///         FPI (0.06 outstanding) is retired outright on all three lanes.
 ///         Route state was read from Blast on 2026-09-21; the fork test asserts that pre-state so
 ///         drift fails loudly instead of reverting mid-batch (LZ_SameValue).
-contract MeshCleanupBlast is OftRouteDeprecationBatch, LegacyHopShutdownBatch {
+contract Batch202609Blast is OftConfigBatch, HopAdminBatch {
     address public constant BLAST_SAFE = 0x33A133020b2C2CD41a24F74033B11EC2fC0bF97a;
 
     address public constant WFRAX_OFT = 0x64445f0aecC51E94aD52d8AC56b7190e764E561a;
@@ -56,6 +56,10 @@ contract MeshCleanupBlast is OftRouteDeprecationBatch, LegacyHopShutdownBatch {
 
     function safe() public pure override returns (address) {
         return BLAST_SAFE;
+    }
+
+    function chainId() public pure override returns (uint256) {
+        return 81457;
     }
 
     function endpoint() public pure override returns (address) {

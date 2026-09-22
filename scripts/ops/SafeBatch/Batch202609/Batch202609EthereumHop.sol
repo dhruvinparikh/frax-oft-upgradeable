@@ -1,21 +1,25 @@
 // SPDX-License-Identifier: ISC
 pragma solidity ^0.8.22;
 
-import {LegacyHopShutdownBatch} from "./LegacyHopShutdownBatch.sol";
+import {HopAdminBatch} from "../HopAdminBatch.sol";
 
 /// @notice One Safe transaction on Ethereum (chain 1) for FRA-102, run by the Hop Safe (0x6cCF3F2C…,
 ///         DEFAULT_ADMIN of the old hop — a different Safe from the OFT admin that runs
-///         MeshCleanupEthereum, hence a second contract on this chain). Shuts down the
+///         Batch202609Ethereum, hence a second contract on this chain). Shuts down the
 ///         first-generation HopV2 spoke (fraxtal-lz-hop `HopV2 Mainnet`), superseded by the hop-v2
 ///         RemoteHopV2 0x0000006D38…: pause, drop the Fraxtal hub registration and the six lockbox
 ///         approvals, zero numDVNs, clear the Solana executor options, sweep its ETH to the Safe.
-contract MeshCleanupEthereumHop is LegacyHopShutdownBatch {
+contract Batch202609EthereumHop is HopAdminBatch {
     address public constant HOP_SAFE = 0x6cCF3F2Ca29591F90ADB403D67E4dcB49cEcC634;
     address public constant OLD_HOP_V2 = 0xFd3B410b82a00B2651b42A13837204c5e3D92e27;
     uint32 public constant FRAXTAL_EID = 30255;
 
     function safe() public pure override returns (address) {
         return HOP_SAFE;
+    }
+
+    function chainId() public pure override returns (uint256) {
+        return 1;
     }
 
     function lockboxes() public pure returns (address[] memory list) {

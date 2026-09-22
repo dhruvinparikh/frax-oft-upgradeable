@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: ISC
 pragma solidity ^0.8.22;
 
-import {OftRouteDeprecationBatch} from "./OftRouteDeprecationBatch.sol";
-import {ILegacyRemoteHop} from "./LegacyHopShutdownBatch.sol";
+import {OftConfigBatch} from "../OftConfigBatch.sol";
+import {ILegacyRemoteHop} from "../HopAdminBatch.sol";
 
 /// @notice One Safe transaction on Ethereum (chain 1) for FRA-56, run by the OFT admin Safe that is
 ///         the LayerZero delegate of every current lockbox.
@@ -27,7 +27,7 @@ import {ILegacyRemoteHop} from "./LegacyHopShutdownBatch.sol";
 ///         0x6Eca253b… already has its send libraries blocked, so clear its Metis / Base / Blast peers
 ///         and block receive. The other five legacy OFTs (frxUSD 0x909DBdE1… etc.) keep their
 ///         receive-only exit lanes untouched.
-contract MeshCleanupEthereum is OftRouteDeprecationBatch {
+contract Batch202609Ethereum is OftConfigBatch {
     address public constant OFT_ADMIN_SAFE = 0xB1748C79709f4Ba2Dd82834B8c82D4a505003f27;
 
     address public constant SFRXUSD_LOCKBOX = 0x7311CEA93ccf5f4F7b789eE31eBA5D9B9290E126;
@@ -49,6 +49,10 @@ contract MeshCleanupEthereum is OftRouteDeprecationBatch {
 
     function safe() public pure override returns (address) {
         return OFT_ADMIN_SAFE;
+    }
+
+    function chainId() public pure override returns (uint256) {
+        return 1;
     }
 
     function endpoint() public pure override returns (address) {
