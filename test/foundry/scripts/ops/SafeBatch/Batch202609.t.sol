@@ -1,16 +1,8 @@
 // SPDX-License-Identifier: ISC
 pragma solidity ^0.8.22;
 
-import {
-    OftConfigBatchTest,
-    IUlnView,
-    IOAppView,
-    IEndpointView,
-    ILegacyHopView,
-    IFraxtalHubView,
-    IOldHopV2View,
-    SafeDelegateBatchTest
-} from "./SafeBatchTest.sol";
+import {SafeBatchTest} from "./SafeBatchTest.sol";
+import {OftConfigBatch} from "scripts/ops/SafeBatch/OftConfigBatch.sol";
 import {Batch202609Plasma} from "scripts/ops/SafeBatch/Batch202609/Batch202609Plasma.sol";
 import {Batch202609Blast} from "scripts/ops/SafeBatch/Batch202609/Batch202609Blast.sol";
 import {Batch202609Fraxtal} from "scripts/ops/SafeBatch/Batch202609/Batch202609Fraxtal.sol";
@@ -22,345 +14,316 @@ import {Batch202609Sei} from "scripts/ops/SafeBatch/Batch202609/Batch202609Sei.s
 import {Batch202609XLayer} from "scripts/ops/SafeBatch/Batch202609/Batch202609XLayer.sol";
 import {Batch202609Katana} from "scripts/ops/SafeBatch/Batch202609/Batch202609Katana.sol";
 
-contract Batch202609PlasmaTest is OftConfigBatchTest {
+/// @notice Pre-flight for the 2026-09 campaign. Each suite declares the accounts its batch may write
+///         and the routes it may change; SafeBatchTest proves nothing else on the chain moves.
+///         Delete this file once the batches have executed.
+library Canonical {
+    /// @dev The six canonical OFTs at their shared vanity addresses (most proxy chains).
+    function ofts() internal pure returns (address[] memory list) {
+        list = new address[](6);
+        list[0] = 0x64445f0aecC51E94aD52d8AC56b7190e764E561a; // WFRAX
+        list[1] = 0x5Bff88cA1442c2496f7E475E9e7786383Bc070c0; // sfrxUSD
+        list[2] = 0x3Ec3849C33291a9eF4c5dB86De593EB4A37fDe45; // sfrxETH
+        list[3] = 0x80Eede496655FB9047dd39d9f418d5483ED600df; // frxUSD
+        list[4] = 0x43eDD7f3831b08FE70B7555ddD373C8bF65a9050; // frxETH
+        list[5] = 0x90581eCa9469D8D7F5D3B60f4715027aDFCf7927; // FPI
+    }
+
+    function has(uint32[] memory arr, uint32 v) internal pure returns (bool) {
+        for (uint256 i = 0; i < arr.length; i++) {
+            if (arr[i] == v) return true;
+        }
+        return false;
+    }
+
+    function has(address[] memory arr, address v) internal pure returns (bool) {
+        for (uint256 i = 0; i < arr.length; i++) {
+            if (arr[i] == v) return true;
+        }
+        return false;
+    }
+
+    function concat(address[] memory a, address[] memory b) internal pure returns (address[] memory out) {
+        out = new address[](a.length + b.length);
+        for (uint256 i = 0; i < a.length; i++) {
+            out[i] = a[i];
+        }
+        for (uint256 i = 0; i < b.length; i++) {
+            out[a.length + i] = b[i];
+        }
+    }
+
+    function one(address a) internal pure returns (address[] memory out) {
+        out = new address[](1);
+        out[0] = a;
+    }
+}
+
+contract Batch202609PlasmaTest is SafeBatchTest {
+    using Canonical for address[];
+
     Batch202609Plasma internal h;
-    address[6] internal ofts;
-    address[4] internal hops;
 
     function setUp() public {
         vm.createSelectFork("https://rpc.plasma.to", 33064570);
         h = new Batch202609Plasma();
         _bind(h);
-        ofts = [h.WFRAX_OFT(), h.SFRXUSD_OFT(), h.SFRXETH_OFT(), h.FRXUSD_OFT(), h.FRXETH_OFT(), h.FPI_OFT()];
-        hops = [
-            h.REMOTE_HOP_2025_10(),
-            h.REMOTE_HOP_2025_12(),
-            h.REMOTE_MINT_REDEEM_HOP_2025_10(),
-            h.REMOTE_MINT_REDEEM_HOP_2025_12()
-        ];
     }
 
-    function _assertBefore() internal override {
-        // Plasma still peers Fraxtal although Fraxtal dropped Plasma; the hops are live and unfunded.
-        for (uint256 i = 0; i < ofts.length; i++) {
-            _assertRouteDirty(ofts[i], h.FRAXTAL_EID(), true);
-        }
-        for (uint256 i = 0; i < hops.length; i++) {
-            assertFalse(ILegacyHopView(hops[i]).paused(), "fork state drifted: hop already paused");
-            assertEq(hops[i].balance, 0, "hop holds XPL: add recoverETH to the recipe");
-        }
+    function _auditedOfts() internal pure override returns (address[] memory) {
+        return Canonical.ofts();
     }
 
-    function _assertAfter() internal override {
-        for (uint256 i = 0; i < ofts.length; i++) {
-            _assertRouteSevered(ofts[i], h.FRAXTAL_EID());
-        }
-        for (uint256 i = 0; i < hops.length; i++) {
-            _assertHopRetired(hops[i]);
-        }
-        for (uint256 i = 0; i < 2; i++) {
-            for (uint256 j = 0; j < ofts.length; j++) {
-                assertFalse(ILegacyHopView(hops[i]).approvedOft(ofts[j]), "OFT still approved on RemoteHop");
-            }
-            assertEq(ILegacyHopView(hops[i]).executorOptions(h.SOLANA_EID()).length, 0, "executor options remain");
-        }
+    function _isExpectedRoute(address, uint32 eid) internal view override returns (bool) {
+        return eid == h.FRAXTAL_EID();
+    }
+
+    function _expectedWriteAccounts() internal view override returns (address[] memory list) {
+        address[] memory hops = new address[](4);
+        hops[0] = h.REMOTE_HOP_2025_10();
+        hops[1] = h.REMOTE_HOP_2025_12();
+        hops[2] = h.REMOTE_MINT_REDEEM_HOP_2025_10();
+        hops[3] = h.REMOTE_MINT_REDEEM_HOP_2025_12();
+        list = _libs().concat(Canonical.ofts()).concat(hops);
+    }
+
+    function _libs() internal view returns (address[] memory list) {
+        list = new address[](3);
+        (list[0], list[1], list[2]) = (endpoint, sendUln, receiveUln);
     }
 }
 
-contract Batch202609BlastTest is OftConfigBatchTest {
+contract Batch202609BlastTest is SafeBatchTest {
+    using Canonical for address[];
+
     Batch202609Blast internal h;
-    address[5] internal ofts;
-    uint32[13] internal eids;
 
     function setUp() public {
         vm.createSelectFork("https://rpc.blast.io", 40601775);
         h = new Batch202609Blast();
         _bind(h);
-        ofts = [h.WFRAX_OFT(), h.SFRXUSD_OFT(), h.SFRXETH_OFT(), h.FRXUSD_OFT(), h.FRXETH_OFT()];
-        uint32[10] memory peered = h.peeredEids();
-        for (uint256 j = 0; j < 10; j++) {
-            eids[j] = peered[j];
-        }
-        eids[10] = h.ETHEREUM_EID();
-        eids[11] = h.METIS_EID();
-        eids[12] = h.FRAXTAL_EID();
     }
 
-    function _peerExpected(address oft, uint32 eid) internal view returns (bool) {
-        if (eid == h.METIS_EID() || eid == h.FRAXTAL_EID()) return false;
-        if (eid == h.ETHEREUM_EID()) return oft != h.WFRAX_OFT();
-        return true;
+    function _auditedOfts() internal view override returns (address[] memory) {
+        return Canonical.ofts().concat(h.legacyOfts()).concat(Canonical.one(h.LEGACY_FPI())).concat(
+            Canonical.one(h.BAD_FPI_OFT())
+        );
     }
 
-    function _assertBefore() internal override {
-        for (uint256 i = 0; i < ofts.length; i++) {
-            for (uint256 j = 0; j < eids.length; j++) {
-                _assertRouteDirty(ofts[i], eids[j], _peerExpected(ofts[i], eids[j]));
-            }
-        }
-        (, bool fpiMetisDefault) = IEndpointView(endpoint).getReceiveLibrary(h.FPI_OFT(), h.METIS_EID());
-        assertFalse(fpiMetisDefault, "fork state drifted: FPI/Metis receive lib already default");
-        assertFalse(ILegacyHopView(h.REMOTE_MINT_REDEEM_HOP()).paused(), "fork state drifted: hop already paused");
-        assertEq(h.REMOTE_MINT_REDEEM_HOP().balance, 0, "hop holds ETH: add recoverETH to the recipe");
-        _assertLegacyLanesOpen(h, h.METIS_EID(), h.BASE_EID());
-        _assertRoutesLive(h.BAD_FPI_OFT(), h.badFpiEids());
-        _assertRoutesLive(h.LEGACY_FPI(), _three(h.ETHEREUM_EID(), h.METIS_EID(), h.BASE_EID()));
+    function _isExpectedRoute(address oft, uint32 eid) internal view override returns (bool) {
+        if (oft == h.BAD_FPI_OFT()) return Canonical.has(h.badFpiEids(), eid);
+        if (oft == h.LEGACY_FPI()) return eid == h.ETHEREUM_EID() || eid == h.METIS_EID() || eid == h.BASE_EID();
+        if (Canonical.has(h.legacyOfts(), oft)) return eid == h.METIS_EID() || eid == h.BASE_EID();
+        // Proxy OFTs: the ten one-way legacy-mesh peers plus Ethereum, Metis and Fraxtal.
+        if (Canonical.has(_asUint32(h.peeredEids()), eid)) return true;
+        return eid == h.ETHEREUM_EID() || eid == h.METIS_EID() || eid == h.FRAXTAL_EID();
     }
 
-    function _assertAfter() internal override {
-        for (uint256 i = 0; i < ofts.length; i++) {
-            for (uint256 j = 0; j < eids.length; j++) {
-                _assertRouteSevered(ofts[i], eids[j]);
-            }
+    function _expectedWriteAccounts() internal view override returns (address[] memory list) {
+        list = _libs().concat(Canonical.ofts()).concat(h.legacyOfts()).concat(Canonical.one(h.LEGACY_FPI())).concat(
+            Canonical.one(h.BAD_FPI_OFT())
+        ).concat(Canonical.one(h.REMOTE_MINT_REDEEM_HOP()));
+    }
+
+    function _libs() internal view returns (address[] memory list) {
+        list = new address[](3);
+        (list[0], list[1], list[2]) = (endpoint, sendUln, receiveUln);
+    }
+
+    function _asUint32(uint32[10] memory fixedList) internal pure returns (uint32[] memory out) {
+        out = new uint32[](10);
+        for (uint256 i = 0; i < 10; i++) {
+            out[i] = fixedList[i];
         }
-        for (uint256 j = 0; j < eids.length; j++) {
-            assertEq(IEndpointView(endpoint).getSendLibrary(h.FPI_OFT(), eids[j]), blockedLibrary, "FPI send lib not blocked");
-            (, bool isDefaultReceive) = IEndpointView(endpoint).getReceiveLibrary(h.FPI_OFT(), eids[j]);
-            assertTrue(isDefaultReceive, "FPI receive lib not default");
-            _assertZeroUlnConfig(h.FPI_OFT(), eids[j]);
-        }
-        _assertHopRetired(h.REMOTE_MINT_REDEEM_HOP());
-        _assertLegacySpokeLanesBlocked(h, h.METIS_EID(), h.BASE_EID());
-        _assertRoutesRetired(h.BAD_FPI_OFT(), h.badFpiEids());
-        _assertRoutesRetired(h.LEGACY_FPI(), _three(h.ETHEREUM_EID(), h.METIS_EID(), h.BASE_EID()));
     }
 }
 
-contract Batch202609FraxtalTest is OftConfigBatchTest {
+contract Batch202609FraxtalTest is SafeBatchTest {
+    using Canonical for address[];
+
     Batch202609Fraxtal internal h;
-    address[6] internal lockboxes;
-    uint256 internal oldHubBalance;
-    uint256 internal safeBalance;
 
     function setUp() public {
         vm.createSelectFork("https://rpc.frax.com", 41603615);
         h = new Batch202609Fraxtal();
         _bind(h);
-        lockboxes = [
-            h.WFRAX_LOCKBOX(),
-            h.SFRXUSD_LOCKBOX(),
-            h.SFRXETH_LOCKBOX(),
-            h.FRXUSD_LOCKBOX(),
-            h.FRXETH_LOCKBOX(),
-            h.FPI_LOCKBOX()
-        ];
     }
 
-    function _assertBefore() internal override {
-        uint32[5] memory retired = h.retiredHubEids();
-        for (uint256 i = 0; i < retired.length; i++) {
-            assertTrue(
-                IFraxtalHubView(h.FRAXTAL_MINT_REDEEM_HOP()).remoteHop(retired[i]) != bytes32(0),
-                "fork state drifted: hub registration already cleared"
-            );
-        }
-        for (uint256 i = 0; i < lockboxes.length; i++) {
-            _assertRouteDirty(lockboxes[i], h.PLASMA_EID(), false);
-            _assertRouteDirty(lockboxes[i], h.METIS_EID(), false);
-            if (lockboxes[i] != h.FPI_LOCKBOX()) _assertRouteDirty(lockboxes[i], h.BLAST_EID(), false);
-        }
-        _assertOldHopV2Live(h.OLD_HOP_V2_HUB(), h.oldHopV2Eids(), h.lockboxes());
-        for (uint256 i = 0; i < lockboxes.length; i++) {
-            if (lockboxes[i] == h.FPI_LOCKBOX()) continue;
-            assertEq(IUlnView(sendUln).getAppUlnConfig(lockboxes[i], h.KATANA_EID()).requiredDVNs.length, 4, "fork state drifted: Katana lane not 4 DVNs");
-        }
-        oldHubBalance = h.OLD_HOP_V2_HUB().balance;
-        safeBalance = h.safe().balance;
-        assertTrue(oldHubBalance != 0, "fork state drifted: old hub already swept");
-        _assertRoutesLive(h.BAD_FPI_OFT(), h.badFpiEids());
+    function _auditedOfts() internal view override returns (address[] memory) {
+        return h.lockboxes().concat(Canonical.one(h.BAD_FPI_OFT()));
     }
 
-    function _assertAfter() internal override {
-        uint32[5] memory retired = h.retiredHubEids();
-        for (uint256 i = 0; i < retired.length; i++) {
-            assertEq(IFraxtalHubView(h.FRAXTAL_MINT_REDEEM_HOP()).remoteHop(retired[i]), bytes32(0), "hub still registered");
-        }
-        for (uint256 i = 0; i < lockboxes.length; i++) {
-            _assertRouteSevered(lockboxes[i], h.PLASMA_EID());
-            _assertRouteSevered(lockboxes[i], h.METIS_EID());
-            _assertRouteSevered(lockboxes[i], h.BLAST_EID());
-        }
-        _assertOldHopV2Shutdown(h.OLD_HOP_V2_HUB(), h.oldHopV2Eids(), h.lockboxes());
-        assertEq(h.safe().balance, safeBalance + oldHubBalance, "old hub FRAX not swept to the Safe");
-        _assertRoutesRetired(h.BAD_FPI_OFT(), h.badFpiEids());
-        for (uint256 i = 0; i < lockboxes.length; i++) {
-            if (lockboxes[i] == h.FPI_LOCKBOX()) continue;
-            _assertRequiredDvns(lockboxes[i], h.KATANA_EID(), h.katanaDvns(), h.KATANA_SEND_CONFIRMATIONS(), h.KATANA_RECEIVE_CONFIRMATIONS());
-        }
-        _assertQuotes(h.FRXUSD_LOCKBOX(), h.KATANA_EID());
+    function _isExpectedRoute(address oft, uint32 eid) internal view override returns (bool) {
+        if (oft == h.BAD_FPI_OFT()) return Canonical.has(h.badFpiEids(), eid);
+        if (eid == h.PLASMA_EID() || eid == h.METIS_EID()) return true;
+        // Blast residue and the FRA-100 Katana DVN upgrade; FPI is already severed on both.
+        if (eid == h.BLAST_EID() || eid == h.KATANA_EID()) return oft != h.FPI_LOCKBOX();
+        return false;
+    }
+
+    function _expectedWriteAccounts() internal view override returns (address[] memory list) {
+        address[] memory hops = new address[](3);
+        hops[0] = h.FRAXTAL_MINT_REDEEM_HOP();
+        hops[1] = h.OLD_HOP_V2_HUB();
+        hops[2] = h.safe(); // recover() sweeps the old hub's FRAX here
+        list = _libs().concat(h.lockboxes()).concat(Canonical.one(h.BAD_FPI_OFT())).concat(hops);
+    }
+
+    function _libs() internal view returns (address[] memory list) {
+        list = new address[](3);
+        (list[0], list[1], list[2]) = (endpoint, sendUln, receiveUln);
     }
 }
 
-contract Batch202609EthereumTest is OftConfigBatchTest {
+contract Batch202609EthereumTest is SafeBatchTest {
+    using Canonical for address[];
+
     Batch202609Ethereum internal h;
-    address[3] internal owned;
 
     function setUp() public {
         vm.createSelectFork("https://eth-mainnet.public.blastapi.io", 26027887);
         h = new Batch202609Ethereum();
         _bind(h);
-        owned = [h.SFRXUSD_LOCKBOX(), h.SFRXETH_LOCKBOX(), h.FRXETH_LOCKBOX()];
     }
 
-    function _assertBefore() internal override {
-        for (uint256 i = 0; i < owned.length; i++) {
-            _assertRouteDirty(owned[i], h.BLAST_EID(), false);
-            _assertRouteDirty(owned[i], h.METIS_EID(), false);
-        }
-        _assertRouteDirty(h.FRXUSD_LOCKBOX(), h.BLAST_EID(), false);
-        _assertRouteDirty(h.FRXUSD_LOCKBOX(), h.METIS_EID(), false);
-        _assertRouteDirty(h.FPI_LOCKBOX(), h.METIS_EID(), false);
-        // The legacy exit lanes must stay exactly as they are: peered, send-blocked.
-        assertTrue(IOAppView(0x909DBdE1eBE906Af95660033e478D59EFe831fED).peers(h.BLAST_EID()) != bytes32(0));
-        uint32[] memory solana = new uint32[](1);
-        solana[0] = h.SOLANA_EID();
-        _assertRoutesLive(h.BAD_FPI_ADAPTER(), solana);
-        // Legacy FPI adapter: peered, send already blocked, receive still open.
-        uint32[] memory legacy = _three(h.METIS_EID(), h.BASE_EID(), h.BLAST_EID());
-        for (uint256 i = 0; i < 3; i++) {
-            assertTrue(IOAppView(h.LEGACY_FPI()).peers(legacy[i]) != bytes32(0), "fork state drifted: legacy FPI peer gone");
-            assertEq(IEndpointView(endpoint).getSendLibrary(h.LEGACY_FPI(), legacy[i]), blockedLibrary, "fork state drifted: legacy FPI send open");
-            (address rl,) = IEndpointView(endpoint).getReceiveLibrary(h.LEGACY_FPI(), legacy[i]);
-            assertTrue(rl != blockedLibrary, "fork state drifted: legacy FPI receive already blocked");
-        }
-        // The seven EVM lanes of the bad adapter are already fully retired and must stay untouched.
-        assertEq(IOAppView(h.BAD_FPI_ADAPTER()).peers(h.BLAST_EID()), bytes32(0));
-        (address evmReceive,) = IEndpointView(endpoint).getReceiveLibrary(h.BAD_FPI_ADAPTER(), h.BLAST_EID());
-        assertEq(evmReceive, blockedLibrary);
-        // V1 RemoteHop: paused, but the rest of its wind-down never ran.
-        assertTrue(ILegacyHopView(h.LEGACY_REMOTE_HOP()).paused(), "fork state drifted: V1 RemoteHop unpaused");
-        assertTrue(ILegacyHopView(h.LEGACY_REMOTE_HOP()).fraxtalHop() != bytes32(0), "fork state drifted: wind-down already done");
-        assertTrue(ILegacyHopView(h.LEGACY_REMOTE_HOP()).approvedOft(h.FRXUSD_LOCKBOX()), "fork state drifted: approvals gone");
-        assertEq(h.LEGACY_REMOTE_HOP().balance, 0, "V1 RemoteHop holds ETH: add recoverETH to an EOA");
+    /// @dev Audits the five legacy OFTs too: their receive-only exit lanes must survive untouched.
+    function _auditedOfts() internal view override returns (address[] memory) {
+        return _lockboxes().concat(h.legacyOfts()).concat(Canonical.one(h.LEGACY_FPI())).concat(
+            Canonical.one(h.BAD_FPI_ADAPTER())
+        );
     }
 
-    function _assertAfter() internal override {
-        for (uint256 i = 0; i < owned.length; i++) {
-            _assertRouteSevered(owned[i], h.BLAST_EID());
-            _assertRouteSevered(owned[i], h.METIS_EID());
-        }
-        // frxUSD: libraries and DVN config reset; enforced options belong to the other owner Safe.
-        _assertRouteSevered(h.FRXUSD_LOCKBOX(), h.BLAST_EID(), false);
-        _assertRouteSevered(h.FRXUSD_LOCKBOX(), h.METIS_EID(), false);
-        _assertRouteSevered(h.FPI_LOCKBOX(), h.METIS_EID());
-        assertTrue(IOAppView(0x909DBdE1eBE906Af95660033e478D59EFe831fED).peers(h.BLAST_EID()) != bytes32(0));
-        uint32[] memory solana = new uint32[](1);
-        solana[0] = h.SOLANA_EID();
-        _assertRoutesRetired(h.BAD_FPI_ADAPTER(), solana);
-        (address evmReceive,) = IEndpointView(endpoint).getReceiveLibrary(h.BAD_FPI_ADAPTER(), h.BLAST_EID());
-        assertEq(evmReceive, blockedLibrary);
-        _assertRoutesRetired(h.LEGACY_FPI(), _three(h.METIS_EID(), h.BASE_EID(), h.BLAST_EID()));
-        _assertHopRetired(h.LEGACY_REMOTE_HOP());
-        assertFalse(ILegacyHopView(h.LEGACY_REMOTE_HOP()).approvedOft(h.FRXUSD_LOCKBOX()), "V1 RemoteHop approval remains");
-        assertFalse(ILegacyHopView(h.LEGACY_REMOTE_HOP()).approvedOft(h.WFRAX_LOCKBOX()), "V1 RemoteHop approval remains");
-        assertEq(ILegacyHopView(h.LEGACY_REMOTE_HOP()).executorOptions(h.SOLANA_EID()).length, 0, "V1 RemoteHop executor options remain");
+    function _isExpectedRoute(address oft, uint32 eid) internal view override returns (bool) {
+        if (oft == h.BAD_FPI_ADAPTER()) return eid == h.SOLANA_EID();
+        if (oft == h.LEGACY_FPI()) return eid == h.METIS_EID() || eid == h.BASE_EID() || eid == h.BLAST_EID();
+        if (oft == h.FPI_LOCKBOX()) return eid == h.METIS_EID();
+        if (oft == h.WFRAX_LOCKBOX()) return false; // already clean
+        if (Canonical.has(h.legacyOfts(), oft)) return false; // exit lanes stay
+        return eid == h.METIS_EID() || eid == h.BLAST_EID();
+    }
+
+    function _expectedWriteAccounts() internal view override returns (address[] memory list) {
+        list = _libs().concat(_lockboxes()).concat(h.legacyOfts()).concat(Canonical.one(h.LEGACY_FPI())).concat(
+            Canonical.one(h.BAD_FPI_ADAPTER())
+        ).concat(Canonical.one(h.LEGACY_REMOTE_HOP()));
+    }
+
+    function _lockboxes() internal view returns (address[] memory list) {
+        list = new address[](6);
+        list[0] = h.SFRXUSD_LOCKBOX();
+        list[1] = h.SFRXETH_LOCKBOX();
+        list[2] = h.FRXUSD_LOCKBOX();
+        list[3] = h.FRXETH_LOCKBOX();
+        list[4] = h.FPI_LOCKBOX();
+        list[5] = h.WFRAX_LOCKBOX();
+    }
+
+    function _libs() internal view returns (address[] memory list) {
+        list = new address[](3);
+        (list[0], list[1], list[2]) = (endpoint, sendUln, receiveUln);
     }
 }
 
-/// @dev Shared shape for the hop-only chains: one or two first-generation HopV2 spokes, swept to the Safe.
-abstract contract OldHopV2SpokeTest is SafeDelegateBatchTest {
-    address[] internal hops;
-    uint32[] internal eids;
-    address[] internal ofts;
-    uint256 internal hopBalances;
-    uint256 internal safeBalance;
+contract Batch202609BaseTest is SafeBatchTest {
+    using Canonical for address[];
 
-    function _assertBefore() internal override {
-        for (uint256 i = 0; i < hops.length; i++) {
-            _assertOldHopV2Live(hops[i], eids, ofts);
-            hopBalances += hops[i].balance;
-        }
-        safeBalance = helper.safe().balance;
-    }
-
-    function _assertAfter() internal override {
-        for (uint256 i = 0; i < hops.length; i++) {
-            _assertOldHopV2Shutdown(hops[i], eids, ofts);
-        }
-        assertEq(helper.safe().balance, safeBalance + hopBalances, "hop ETH not swept to the Safe");
-    }
-}
-
-contract Batch202609ArbitrumTest is OldHopV2SpokeTest {
-    function setUp() public {
-        vm.createSelectFork("https://arb1.arbitrum.io/rpc", 507543763);
-        Batch202609Arbitrum h = new Batch202609Arbitrum();
-        helper = h;
-        hops.push(h.OLD_HOP_V2());
-        eids.push(h.FRAXTAL_EID());
-        ofts = h.ofts();
-    }
-}
-
-contract Batch202609BaseTest is OftConfigBatchTest {
     Batch202609Base internal h;
-    address[2] internal hops;
-    uint32[] internal hubEids;
-    uint256 internal hopBalances;
-    uint256 internal safeBalance;
 
     function setUp() public {
         vm.createSelectFork("https://base-rpc.publicnode.com", 51614978);
         h = new Batch202609Base();
         _bind(h);
-        hops = [h.OLD_HOP_V2(), h.OLDER_HOP_V2()];
-        hubEids.push(h.FRAXTAL_EID());
     }
 
-    function _assertBefore() internal override {
-        for (uint256 i = 0; i < hops.length; i++) {
-            _assertOldHopV2Live(hops[i], hubEids, h.ofts());
-            hopBalances += hops[i].balance;
-        }
-        safeBalance = h.safe().balance;
-        _assertLegacyLanesOpen(h, h.METIS_EID(), h.BLAST_EID());
-        _assertRoutesLive(h.BAD_FPI_OFT(), h.badFpiEids());
-        _assertRoutesLive(h.LEGACY_FPI(), _three(h.ETHEREUM_EID(), h.METIS_EID(), h.BLAST_EID()));
+    /// @dev Audits Base's own canonical OFTs: none of them may move.
+    function _auditedOfts() internal view override returns (address[] memory) {
+        return h.ofts().concat(h.legacyOfts()).concat(Canonical.one(h.LEGACY_FPI())).concat(
+            Canonical.one(h.BAD_FPI_OFT())
+        );
     }
 
-    function _assertAfter() internal override {
-        for (uint256 i = 0; i < hops.length; i++) {
-            _assertOldHopV2Shutdown(hops[i], hubEids, h.ofts());
-        }
-        assertEq(h.safe().balance, safeBalance + hopBalances, "hop ETH not swept to the Safe");
-        _assertLegacySpokeLanesBlocked(h, h.METIS_EID(), h.BLAST_EID());
-        _assertRoutesRetired(h.BAD_FPI_OFT(), h.badFpiEids());
-        _assertRoutesRetired(h.LEGACY_FPI(), _three(h.ETHEREUM_EID(), h.METIS_EID(), h.BLAST_EID()));
+    function _isExpectedRoute(address oft, uint32 eid) internal view override returns (bool) {
+        if (oft == h.BAD_FPI_OFT()) return Canonical.has(h.badFpiEids(), eid);
+        if (oft == h.LEGACY_FPI()) return eid == h.ETHEREUM_EID() || eid == h.METIS_EID() || eid == h.BLAST_EID();
+        if (Canonical.has(h.legacyOfts(), oft)) return eid == h.METIS_EID() || eid == h.BLAST_EID();
+        return false;
+    }
+
+    function _expectedWriteAccounts() internal view override returns (address[] memory list) {
+        address[] memory hops = new address[](2);
+        hops[0] = h.OLD_HOP_V2();
+        hops[1] = h.OLDER_HOP_V2();
+        list = _libs().concat(h.legacyOfts()).concat(Canonical.one(h.LEGACY_FPI())).concat(
+            Canonical.one(h.BAD_FPI_OFT())
+        ).concat(hops);
+    }
+
+    function _libs() internal view returns (address[] memory list) {
+        list = new address[](3);
+        (list[0], list[1], list[2]) = (endpoint, sendUln, receiveUln);
     }
 }
 
-contract Batch202609EthereumHopTest is OldHopV2SpokeTest {
+contract Batch202609KatanaTest is SafeBatchTest {
+    using Canonical for address[];
+
+    Batch202609Katana internal h;
+
     function setUp() public {
-        vm.createSelectFork("https://eth-mainnet.public.blastapi.io", 26027887);
-        Batch202609EthereumHop h = new Batch202609EthereumHop();
-        helper = h;
-        hops.push(h.OLD_HOP_V2());
-        eids.push(h.FRAXTAL_EID());
-        ofts = h.lockboxes();
+        vm.createSelectFork("https://rpc.katana.network", 43290445);
+        h = new Batch202609Katana();
+        _bind(h);
+    }
+
+    function _auditedOfts() internal view override returns (address[] memory) {
+        return h.ofts().concat(Canonical.one(h.FPI_OFT()));
+    }
+
+    /// @dev FRA-100 upgrades the live Fraxtal lane on purpose; no other eid may move.
+    function _isExpectedRoute(address, uint32 eid) internal view override returns (bool) {
+        return eid == h.FRAXTAL_EID();
+    }
+
+    function _expectedWriteAccounts() internal view override returns (address[] memory list) {
+        address[] memory hops = new address[](2);
+        hops[0] = h.REMOTE_MINT_REDEEM_HOP();
+        hops[1] = h.REMOTE_HOP_V2();
+        list = _libs().concat(h.ofts()).concat(Canonical.one(h.FPI_OFT())).concat(hops);
+    }
+
+    function _libs() internal view returns (address[] memory list) {
+        list = new address[](3);
+        (list[0], list[1], list[2]) = (endpoint, sendUln, receiveUln);
     }
 }
 
-/// @dev Spoke-only chains of the non-canonical FPI mesh.
-abstract contract BadFpiSpokeTest is OftConfigBatchTest {
-    address internal badFpi;
-    uint32[] internal eids;
+/// @dev Sei and X-Layer only retire the non-canonical FPI spoke; their canonical OFTs are audited to
+///      prove they do not move.
+abstract contract BadFpiSpokeTest is SafeBatchTest {
+    using Canonical for address[];
 
-    function _assertBefore() internal override {
-        _assertRoutesLive(badFpi, eids);
+    address internal badFpi;
+
+    function _auditedOfts() internal view override returns (address[] memory) {
+        return Canonical.ofts().concat(Canonical.one(badFpi));
     }
 
-    function _assertAfter() internal override {
-        _assertRoutesRetired(badFpi, eids);
+    function _isExpectedRoute(address oft, uint32) internal view override returns (bool) {
+        return oft == badFpi;
+    }
+
+    function _expectedWriteAccounts() internal view override returns (address[] memory list) {
+        list = new address[](4);
+        (list[0], list[1], list[2], list[3]) = (endpoint, sendUln, receiveUln, badFpi);
     }
 }
 
 contract Batch202609SeiTest is BadFpiSpokeTest {
     function setUp() public {
-        vm.createSelectFork("https://sei-evm-rpc.publicnode.com", 233357408);
+        vm.createSelectFork("https://sei-evm-rpc.publicnode.com", 233509436);
         Batch202609Sei h = new Batch202609Sei();
         _bind(h);
         badFpi = h.BAD_FPI_OFT();
-        eids = h.badFpiEids();
     }
 }
 
@@ -370,37 +333,36 @@ contract Batch202609XLayerTest is BadFpiSpokeTest {
         Batch202609XLayer h = new Batch202609XLayer();
         _bind(h);
         badFpi = h.BAD_FPI_OFT();
-        eids = h.badFpiEids();
     }
 }
 
-contract Batch202609KatanaTest is OftConfigBatchTest {
-    Batch202609Katana internal h;
+/// @dev Hop-only batches: no LayerZero config at all, so only the write-account envelope applies.
+contract Batch202609ArbitrumTest is SafeBatchTest {
+    Batch202609Arbitrum internal h;
 
     function setUp() public {
-        vm.createSelectFork("https://rpc.katana.network", 43290445);
-        h = new Batch202609Katana();
-        _bind(h);
+        vm.createSelectFork("https://arb1.arbitrum.io/rpc", 507543763);
+        h = new Batch202609Arbitrum();
+        helper = h;
     }
 
-    function _assertBefore() internal override {
-        address[] memory list = h.ofts();
-        for (uint256 i = 0; i < list.length; i++) {
-            assertEq(IUlnView(sendUln).getAppUlnConfig(list[i], h.FRAXTAL_EID()).requiredDVNs.length, 4, "fork state drifted: Fraxtal lane not 4 DVNs");
-        }
-        assertEq(ILegacyHopView(h.REMOTE_MINT_REDEEM_HOP()).numDVNs(), 4, "fork state drifted: mint-redeem hop numDVNs");
-        assertEq(IOldHopV2View(h.REMOTE_HOP_V2()).numDVNs(), 4, "fork state drifted: HopV2 numDVNs");
-        _assertRouteDirty(h.FPI_OFT(), h.FRAXTAL_EID(), true);
+    function _expectedWriteAccounts() internal view override returns (address[] memory list) {
+        list = new address[](1);
+        list[0] = h.OLD_HOP_V2();
+    }
+}
+
+contract Batch202609EthereumHopTest is SafeBatchTest {
+    Batch202609EthereumHop internal h;
+
+    function setUp() public {
+        vm.createSelectFork("https://eth-mainnet.public.blastapi.io", 26027887);
+        h = new Batch202609EthereumHop();
+        helper = h;
     }
 
-    function _assertAfter() internal override {
-        address[] memory list = h.ofts();
-        for (uint256 i = 0; i < list.length; i++) {
-            _assertRequiredDvns(list[i], h.FRAXTAL_EID(), h.fraxtalDvns(), h.FRAXTAL_SEND_CONFIRMATIONS(), h.FRAXTAL_RECEIVE_CONFIRMATIONS());
-        }
-        _assertQuotes(list[3], h.FRAXTAL_EID()); // frxUSD
-        assertEq(ILegacyHopView(h.REMOTE_MINT_REDEEM_HOP()).numDVNs(), 5, "mint-redeem hop numDVNs not 5");
-        assertEq(IOldHopV2View(h.REMOTE_HOP_V2()).numDVNs(), 5, "HopV2 numDVNs not 5");
-        _assertRouteSevered(h.FPI_OFT(), h.FRAXTAL_EID());
+    function _expectedWriteAccounts() internal view override returns (address[] memory list) {
+        list = new address[](1);
+        list[0] = h.OLD_HOP_V2();
     }
 }
