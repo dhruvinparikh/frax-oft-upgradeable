@@ -139,10 +139,37 @@ contract DeprecateFromSafeBatch is DeprecateOFTBase {
 
             currentSubject = subject[i];
             currentEid = eid[i];
-            new SafeTxUtil().writeTxs(group, filename());
+            _writeBatch(group, filename());
             written++;
         }
         console.log("files written:", written);
+    }
+
+    /// @dev Streams one Safe Tx Builder batch with cheatcodes alone — same document, field for
+    ///      field, as `SafeTxUtil.writeTxs`. Deploying SafeTxUtil mid-script reverts on some forks
+    ///      (seen on Base and Fraxtal) and its in-memory JSON building cannot pay the memory gas for
+    ///      a large admin group, and this needs neither a CREATE nor the memory.
+    function _writeBatch(SerializedTx[] memory txs, string memory path) internal {
+        vm.writeFile(
+            path,
+            string.concat(
+                '{"chainId":', block.chainid.toString(),
+                ',"createdAt":', (block.timestamp * 1000).toString(),
+                ',"meta":{"description":"","name":"Transactions Batch"},"transactions":['
+            )
+        );
+        for (uint256 i = 0; i < txs.length; i++) {
+            vm.writeLine(
+                path,
+                string.concat(
+                    '{"data":"', vm.toString(txs[i].data),
+                    '","operation":"0","to":"', vm.toString(txs[i].to),
+                    '","value":"', txs[i].value.toString(),
+                    i + 1 == txs.length ? '"}' : '"},'
+                )
+            );
+        }
+        vm.writeLine(path, '],"version":"1.0"}');
     }
 
     // -------------------------------------------------------------------------------------------

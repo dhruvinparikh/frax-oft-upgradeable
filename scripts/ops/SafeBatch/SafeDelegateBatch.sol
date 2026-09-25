@@ -19,19 +19,19 @@ pragma solidity ^0.8.22;
 ///           - let inner reverts bubble: with safeTxGas == 0 the Safe turns them into GS013, so the
 ///             batch is all-or-nothing and a failure never consumes a nonce.
 ///
-///         Operations: deploy + verify first, derive the Safe payload from the broadcast receipt
-///         (never a predicted address), propose through the transaction service — the Safe UI's
-///         Transaction Builder only emits CALLs — then signers confirm in the Safe UI, which shows
-///         its "unexpected delegate call" warning for any target that is not MultiSend.
+///         Operations: deploy + verify, then EXTRACT — the Safe signing UI refuses operation = 1 to
+///         untrusted targets, so a batch is never queued directly. It is the reviewable spec:
+///         scripts/ops/DeprecateChain/DeprecateFromSafeBatch.s.sol replays it through the real Safe
+///         on a fork and writes its calls as per-route Tx Builder payloads, and a fork test proves
+///         those payloads change exactly the storage this contract would, slot for slot.
 ///
-///         Deploy with scripts/ops/SafeBatch/DeploySafeBatch.s.sol (BATCH=<ContractName>); test with
-///         SafeDelegateBatchTest in test/foundry/scripts/ops/SafeBatch/SafeBatchTest.sol (real Safe
+///         Test with SafeBatchTest in test/foundry/scripts/ops/SafeBatch/ (real Safe
 ///         execTransaction on a fork, before/after state, replay -> GS013, opcode scan).
 abstract contract SafeDelegateBatch {
     /// @notice The only Safe this batch may run in.
     function safe() public pure virtual returns (address);
 
-    /// @notice The only chain this batch may be deployed to (checked by DeploySafeBatch).
+    /// @notice The only chain this batch may run on (checked by the extractor and the tests).
     function chainId() public pure virtual returns (uint256);
 
     function execute() external {
