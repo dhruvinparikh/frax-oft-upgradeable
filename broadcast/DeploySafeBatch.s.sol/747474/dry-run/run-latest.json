@@ -1,7 +1,7 @@
 {
   "transactions": [
     {
-      "hash": "0x5ac5375e299a81df35679af5e43ae7e532be792e94cd21abdb4626bdbc18878a",
+      "hash": null,
       "transactionType": "CREATE2",
       "contractName": "Batch202609Katana",
       "contractAddress": "0x006d2b323e1c3810b56764148991e702dadc9309",
@@ -21,38 +21,11 @@
       "isFixedGasLimit": false
     }
   ],
-  "receipts": [
-    {
-      "type": "0x2",
-      "status": "0x1",
-      "cumulativeGasUsed": "0x139374",
-      "logs": [],
-      "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-      "transactionHash": "0x5ac5375e299a81df35679af5e43ae7e532be792e94cd21abdb4626bdbc18878a",
-      "transactionIndex": "0x1",
-      "blockHash": "0xa2e25b794519471b330f399ef3a8906c95a2069365702448dea050ee87dbc7a3",
-      "blockNumber": "0x298adc6",
-      "gasUsed": "0x12deba",
-      "effectiveGasPrice": "0xf4241",
-      "blobGasUsed": "0x11cc40",
-      "from": "0x54f9b12743a7deec0ea48721683cbebedc6e17bc",
-      "to": "0x4e59b44847b379578588920ca78fbf26c0b4956c",
-      "contractAddress": null,
-      "l1GasPrice": "0x763c597",
-      "l1GasUsed": "0xb641",
-      "l1Fee": "0x5ef080518",
-      "l1BaseFeeScalar": "0x558",
-      "l1BlobBaseFee": "0x72a71c",
-      "l1BlobBaseFeeScalar": "0xc3c9d",
-      "operatorFeeScalar": "0x186a0",
-      "operatorFeeConstant": "0x0",
-      "daFootprintGasScalar": "0x190"
-    }
-  ],
+  "receipts": [],
   "libraries": [],
   "pending": [],
   "returns": {},
-  "timestamp": 1790303203407,
+  "timestamp": 1790302373065,
   "chain": 747474,
   "commit": "340f8678"
 }

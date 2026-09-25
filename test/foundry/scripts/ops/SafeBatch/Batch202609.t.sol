@@ -98,7 +98,7 @@ contract Batch202609BlastTest is SafeBatchTest {
 
     Batch202609Blast internal h;
 
-    function setUp() public {
+    function setUp() public virtual {
         vm.createSelectFork("https://rpc.blast.io", 40601775);
         h = new Batch202609Blast();
         _bind(h);
@@ -295,6 +295,33 @@ contract Batch202609KatanaTest is SafeBatchTest {
         list = new address[](3);
         (list[0], list[1], list[2]) = (endpoint, sendUln, receiveUln);
     }
+
+    /// @notice Katana is the one batch that tolerates a re-run instead of reverting. Its FPI sever is
+    ///         guarded so it survives another campaign's proposal landing first
+    ///         (KatanaPendingQueue.t.sol), and the same guards make a replay harmless rather than
+    ///         fatal: every call is then same-value, so a second execution burns a nonce and changes
+    ///         nothing. Asserted here rather than dropped, because "reverts" and "no-ops" are both
+    ///         acceptable and this records which one this batch does.
+    function test_SecondExecutionRevertsInsteadOfConsumingNonce() public override {
+        assertTrue(_execViaSafe(), "first execution failed");
+
+        uint32[] memory eids = _meshEids();
+        address[] memory ofts = _auditedOfts();
+        bytes32[][] memory before = new bytes32[][](ofts.length);
+        for (uint256 i = 0; i < ofts.length; i++) {
+            before[i] = new bytes32[](eids.length);
+            for (uint256 j = 0; j < eids.length; j++) {
+                before[i][j] = _routeFingerprint(ofts[i], eids[j]);
+            }
+        }
+
+        assertTrue(_execViaSafe(), "the replay neither reverted nor succeeded");
+        for (uint256 i = 0; i < ofts.length; i++) {
+            for (uint256 j = 0; j < eids.length; j++) {
+                assertEq(_routeFingerprint(ofts[i], eids[j]), before[i][j], "a replay changed a route");
+            }
+        }
+    }
 }
 
 /// @dev Sei and X-Layer only retire the non-canonical FPI spoke; their canonical OFTs are audited to
@@ -319,7 +346,7 @@ abstract contract BadFpiSpokeTest is SafeBatchTest {
 }
 
 contract Batch202609SeiTest is BadFpiSpokeTest {
-    function setUp() public {
+    function setUp() public virtual {
         vm.createSelectFork("https://sei-evm-rpc.publicnode.com", 233509436);
         Batch202609Sei h = new Batch202609Sei();
         _bind(h);
@@ -366,3 +393,33 @@ contract Batch202609EthereumHopTest is SafeBatchTest {
         list[0] = h.OLD_HOP_V2();
     }
 }
+
+/// @dev Blast and Sei cannot queue a delegatecall (their services trust only MultiSendCallOnly), so
+///      they ship as Tx Builder payloads extracted from the batch instead. These two run the whole
+///      envelope again at the head of the chain — where the payloads will actually execute, and
+///      where drift since the pinned blocks above would show up — and add the equivalence proof.
+contract Batch202609BlastPlainCallTest is Batch202609BlastTest {
+    function setUp() public override {
+        vm.createSelectFork("https://rpc.blast.io");
+        h = new Batch202609Blast();
+        _bind(h);
+    }
+
+    function _plainCallDir() internal pure override returns (string memory) {
+        return "scripts/ops/DeprecateChain/txs/batch202609-81457";
+    }
+}
+
+contract Batch202609SeiPlainCallTest is Batch202609SeiTest {
+    function setUp() public override {
+        vm.createSelectFork("https://sei-evm-rpc.publicnode.com");
+        Batch202609Sei h = new Batch202609Sei();
+        _bind(h);
+        badFpi = h.BAD_FPI_OFT();
+    }
+
+    function _plainCallDir() internal pure override returns (string memory) {
+        return "scripts/ops/DeprecateChain/txs/batch202609-1329";
+    }
+}
+

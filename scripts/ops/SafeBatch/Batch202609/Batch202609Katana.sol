@@ -1,8 +1,16 @@
 // SPDX-License-Identifier: ISC
 pragma solidity ^0.8.22;
 
-import {OftConfigBatch} from "../OftConfigBatch.sol";
+import {OftConfigBatch, IMessageLibManager, IOAppCore, IOAppOptionsType3} from "../OftConfigBatch.sol";
 import {ILegacyRemoteHop, IOldHopV2} from "../HopAdminBatch.sol";
+
+/// @dev Read side of the two endpoint settings that revert `LZ_SameValue` when already at target.
+///      Declared here rather than in OftConfigBatch so the nine batches already deployed from that
+///      file still compile to the bytecode living at their addresses.
+interface IEndpointLibraryView {
+    function getSendLibrary(address _sender, uint32 _eid) external view returns (address);
+    function getReceiveLibrary(address _receiver, uint32 _eid) external view returns (address lib, bool isDefault);
+}
 
 /// @notice One Safe transaction on Katana (chain 747474) for FRA-100: the Fraxtal lane to 5/5.
 ///         Horizen now runs a DVN on Katana, so the six OFTs' send and receive ULN config toward
@@ -10,7 +18,8 @@ import {ILegacyRemoteHop, IOldHopV2} from "../HopAdminBatch.sol";
 ///         and the two live hops quote the return leg with numDVNs = 5. The V1 RemoteHop is already
 ///         wound down and stays untouched. Execute Batch202609Fraxtal FIRST.
 ///         FPI is retired mesh-wide: Fraxtal already severed its side, so the stale Katana FPI route
-///         (still peered, live libraries, zero supply) is severed here instead of upgraded.
+///         (still peered, live libraries, zero supply) is severed here instead of upgraded — but
+///         idempotently, see `_severFpiTowardFraxtal`.
 contract Batch202609Katana is OftConfigBatch {
     address public constant KATANA_SAFE = 0x19A90b0476cdc8EC1239266663CA820175B9B527;
     address public constant REMOTE_MINT_REDEEM_HOP = 0xF6f45CCB5E85D1400067ee66F9e168f83e86124E;
@@ -76,6 +85,43 @@ contract Batch202609Katana is OftConfigBatch {
         ILegacyRemoteHop(REMOTE_MINT_REDEEM_HOP).setNumDVNs(NUM_DVNS);
         IOldHopV2(REMOTE_HOP_V2).setNumDVNs(NUM_DVNS);
 
-        _sever(FPI_OFT, FRAXTAL_EID, true, true);
+        _severFpiTowardFraxtal();
+    }
+
+    /// @dev `_sever(FPI_OFT, FRAXTAL_EID, true, true)`, with the two calls that cannot be repeated
+    ///      guarded.
+    ///
+    ///      This Safe is shared. Another campaign holds an executable proposal on it (nonce 22 at the
+    ///      time of writing, 2 of 3 confirmations) that severs this exact route, and a Safe runs its
+    ///      nonces in order, so that one lands first. The endpoint reverts `LZ_SameValue` when asked
+    ///      to set a library that is already at its target, and in a single all-or-nothing batch that
+    ///      one already-done call reverts everything — the FRA-100 DVN work above included. Measured
+    ///      on a fork: of the six calls `_sever` makes, only `setSendLibrary` and `setReceiveLibrary`
+    ///      revert on a second application; `setPeer`, `setEnforcedOptions` and both `setConfig`s are
+    ///      idempotent and run unconditionally so the end state is identical either way.
+    ///
+    ///      So whichever campaign executes first, both finish. Nothing here depends on the other
+    ///      proposal existing, being confirmed, or being deleted.
+    function _severFpiTowardFraxtal() internal {
+        IEndpointLibraryView view_ = IEndpointLibraryView(endpoint());
+
+        if (view_.getSendLibrary(FPI_OFT, FRAXTAL_EID) != blockedLibrary()) {
+            IMessageLibManager(endpoint()).setSendLibrary(FPI_OFT, FRAXTAL_EID, blockedLibrary());
+        }
+        IOAppCore(FPI_OFT).setPeer(FRAXTAL_EID, bytes32(0));
+        (, bool isDefault) = view_.getReceiveLibrary(FPI_OFT, FRAXTAL_EID);
+        if (!isDefault) {
+            IMessageLibManager(endpoint()).setReceiveLibrary(FPI_OFT, FRAXTAL_EID, address(0), 0);
+        }
+        IOAppOptionsType3.EnforcedOptionParam[] memory options = new IOAppOptionsType3.EnforcedOptionParam[](2);
+        options[0] =
+            IOAppOptionsType3.EnforcedOptionParam({eid: FRAXTAL_EID, msgType: MSG_TYPE_SEND, options: EMPTY_TYPE3_OPTIONS});
+        options[1] = IOAppOptionsType3.EnforcedOptionParam({
+            eid: FRAXTAL_EID,
+            msgType: MSG_TYPE_SEND_AND_CALL,
+            options: EMPTY_TYPE3_OPTIONS
+        });
+        IOAppOptionsType3(FPI_OFT).setEnforcedOptions(options);
+        _zeroUlnConfig(FPI_OFT, FRAXTAL_EID);
     }
 }
