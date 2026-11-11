@@ -31,8 +31,8 @@
       "value": "0x45E458293B345E9981735bf8d972a97f6378Fb80"
     }
   },
-  "timestamp": 1793894482781,
+  "timestamp": 1794286620356,
   "chain": 98866,
-  "commit": "92070333",
-  "recovery_generation": "0x9612853a778af4d9a419416ac2c36c6d580a6899be119959d44e7614263c06d8"
+  "commit": "862cb0fb",
+  "recovery_generation": "0xbd53a6f69fdeb2cd8794bc1249743801b08a949eb35d5c01a6b22609b10a37c9"
 }
